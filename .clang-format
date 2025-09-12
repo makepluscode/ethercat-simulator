@@ -1,0 +1,39 @@
+BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 100
+PointerAlignment: Left
+AlignConsecutiveAssignments: true
+AlignConsecutiveDeclarations: true
+AlignTrailingComments: true
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+BreakBeforeBraces: Attach
+NamespaceIndentation: None
+SpaceBeforeParens: ControlStatements
+SpacesInParentheses: false
+SpacesInAngles: false
+SpaceAfterCStyleCast: true
+SortIncludes: true
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: '^<.*>'
+    Priority: 1
+  - Regex: '^"kickcat/.*"'
+    Priority: 2
+  - Regex: '^".*"'
+    Priority: 3
+KeepEmptyLinesAtTheStartOfBlocks: false
+ReflowComments: true
+BraceWrapping:
+  AfterClass: false
+  AfterControlStatement: false
+  AfterEnum: false
+  AfterFunction: false
+  AfterNamespace: false
+  AfterStruct: false
+  AfterUnion: false
+  BeforeCatch: false
+  BeforeElse: false
+
