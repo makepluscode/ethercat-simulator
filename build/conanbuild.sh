@@ -1,0 +1,1 @@
+. "/home/makepluscode/EtherCATSimulator/build/conanbuildenv-release-x86_64.sh"

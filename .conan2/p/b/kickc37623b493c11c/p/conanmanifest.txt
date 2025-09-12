@@ -1,0 +1,24 @@
+1757682946
+conaninfo.txt: 5b1010cb2c7e2148997af7f30ab43b22
+include/kickcat/AbstractDiagSocket.h: 411e21f5cd5fc116b94777bf06eb2901
+include/kickcat/AbstractSocket.h: 673516279c89cb9afbc9e6654f569327
+include/kickcat/Bus.h: b4d18109324f1d2e3d37c5b718271d15
+include/kickcat/DebugHelpers.h: 64bccb65767dbb7c7ea5f4e28759b5a6
+include/kickcat/Diagnostics.h: 0c63c39497d458dbbe5b6b19c7079512
+include/kickcat/Error.h: 30dc929b552a924c5103dd39f5a100c6
+include/kickcat/Frame.h: 9518e60a202cb4a1af1eb2d0edfe8e0d
+include/kickcat/Gateway.h: 6938ceac5d418e4debe19e5f7e4c87ca
+include/kickcat/KickCAT.h: 1a2b780fe1ac4987062860c9335253d4
+include/kickcat/Link.h: 8ff46332c39c997b289304f6a802d2da
+include/kickcat/Mailbox.h: e8464201bff9684c9a451a78c98bc775
+include/kickcat/OS/Linux/Socket.h: d2365a73508589916eb4c9b5e7eeaa2d
+include/kickcat/OS/Linux/UdpDiagSocket.h: d3d7b77125f703e13b4b6626471cf20a
+include/kickcat/OS/PikeOS/ErrorCategory.h: cdb36d095fe142c3087761d28b9df88d
+include/kickcat/OS/PikeOS/Socket.h: f65ff987acee6d2d50bac6f5015fc7a7
+include/kickcat/Prints.h: 92f738565791b7f0f1d0201ca5894381
+include/kickcat/Slave.h: 896a22c5560090f81b9428a753bd0001
+include/kickcat/SocketNull.h: a7ea1551cab92033360a358254208f71
+include/kickcat/Time.h: 03b980992478802c309d61bdab12f71f
+include/kickcat/protocol.h: e66ec434a0495639e13194ced4b33e86
+lib/libkickcat.a: 958bac34a0b415e7ad2b38f5eaf0cec5
+licenses/LICENSE: 2e51a1d6312965d45ff2e479fc5627c2

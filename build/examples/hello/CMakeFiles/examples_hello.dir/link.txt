@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG CMakeFiles/examples_hello.dir/main.cpp.o -o examples_hello  ../../core/libethercat_core.a 

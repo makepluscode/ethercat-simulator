@@ -1,0 +1,5 @@
+add_test([=[NetworkSimulator.Loopback_WhenLinkUp_SendsAndReceives]=]  /home/makepluscode/EtherCATSimulator/build/tests/test_network_simulator [==[--gtest_filter=NetworkSimulator.Loopback_WhenLinkUp_SendsAndReceives]==] --gtest_also_run_disabled_tests)
+set_tests_properties([=[NetworkSimulator.Loopback_WhenLinkUp_SendsAndReceives]=]  PROPERTIES WORKING_DIRECTORY /home/makepluscode/EtherCATSimulator/build/tests SKIP_REGULAR_EXPRESSION [==[\[  SKIPPED \]]==])
+add_test([=[NetworkSimulator.SendReceive_WhenLinkDown_Fails]=]  /home/makepluscode/EtherCATSimulator/build/tests/test_network_simulator [==[--gtest_filter=NetworkSimulator.SendReceive_WhenLinkDown_Fails]==] --gtest_also_run_disabled_tests)
+set_tests_properties([=[NetworkSimulator.SendReceive_WhenLinkDown_Fails]=]  PROPERTIES WORKING_DIRECTORY /home/makepluscode/EtherCATSimulator/build/tests SKIP_REGULAR_EXPRESSION [==[\[  SKIPPED \]]==])
+set(  test_network_simulator_TESTS NetworkSimulator.Loopback_WhenLinkUp_SendsAndReceives NetworkSimulator.SendReceive_WhenLinkDown_Fails)
