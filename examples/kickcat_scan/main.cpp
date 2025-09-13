@@ -10,14 +10,14 @@
 
 int main()
 {
-    using namespace ethercat_sim;
+    using ethercat_sim::simulation::NetworkSimulator;
 
-    auto sim = std::make_shared<simulation::NetworkSimulator>();
+    auto sim = std::make_shared<NetworkSimulator>();
     sim->initialize();
     sim->setLinkUp(true);
     sim->setVirtualSlaveCount(2); // simulate two slaves on the bus
 
-    auto nominal = std::make_shared<kickcat_adapter::SimSocket>(sim);
+    auto nominal = std::make_shared<ethercat_sim::kickcat::SimSocket>(sim);
     auto redun   = std::make_shared<::kickcat::SocketNull>();
 
     // Minimal link and bus setup

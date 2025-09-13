@@ -9,17 +9,18 @@
 #include "kickcat/DebugHelpers.h"
 #include "kickcat/SocketNull.h"
 
-using namespace ethercat_sim;
+using ethercat_sim::simulation::NetworkSimulator;
+using ethercat_sim::simulation::VirtualSlave;
 
 TEST(KickcatAdapter, APRW_AssignsAddresses_WkcIsOne)
 {
-    auto sim = std::make_shared<simulation::NetworkSimulator>();
+    auto sim = std::make_shared<NetworkSimulator>();
     sim->initialize();
     sim->clearSlaves();
-    sim->addVirtualSlave(std::make_shared<simulation::VirtualSlave>(0, 0, 0, "S1"));
-    sim->addVirtualSlave(std::make_shared<simulation::VirtualSlave>(0, 0, 0, "S2"));
+    sim->addVirtualSlave(std::make_shared<VirtualSlave>(0, 0, 0, "S1"));
+    sim->addVirtualSlave(std::make_shared<VirtualSlave>(0, 0, 0, "S2"));
 
-    auto nominal = std::make_shared<kickcat_adapter::SimSocket>(sim);
+    auto nominal = std::make_shared<ethercat_sim::kickcat::SimSocket>(sim);
     auto redun   = std::make_shared<::kickcat::SocketNull>();
     auto link    = std::make_shared<::kickcat::Link>(nominal, redun, []{});
 
@@ -49,11 +50,11 @@ TEST(KickcatAdapter, APRW_AssignsAddresses_WkcIsOne)
 
 TEST(KickcatAdapter, LRW_LogicalMemory_ReadWrite)
 {
-    auto sim = std::make_shared<simulation::NetworkSimulator>();
+    auto sim = std::make_shared<NetworkSimulator>();
     sim->initialize();
     sim->setVirtualSlaveCount(1);
 
-    auto nominal = std::make_shared<kickcat_adapter::SimSocket>(sim);
+    auto nominal = std::make_shared<ethercat_sim::kickcat::SimSocket>(sim);
     auto redun   = std::make_shared<::kickcat::SocketNull>();
     auto link    = std::make_shared<::kickcat::Link>(nominal, redun, []{});
 

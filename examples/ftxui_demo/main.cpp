@@ -4,11 +4,9 @@
 
 int main()
 {
-    using namespace ftxui;
-    auto doc = hbox({ text("FTXUI demo OK") | bold | color(Color::Green) });
-    auto screen = Screen::Create(Dimension::Fit(doc));
-    Render(screen, doc);
+    auto doc = ftxui::hbox({ ftxui::text("FTXUI demo OK") | ftxui::bold | ftxui::color(ftxui::Color::Green) });
+    auto screen = ftxui::Screen::Create(ftxui::Dimension::Fit(doc));
+    ftxui::Render(screen, doc);
     std::cout << screen.ToString() << std::endl;
     return 0;
 }
-

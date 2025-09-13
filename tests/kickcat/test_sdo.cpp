@@ -7,7 +7,8 @@
 #include "kickcat/protocol.h"
 #include "kickcat/SocketNull.h"
 
-using namespace ethercat_sim;
+using ethercat_sim::simulation::NetworkSimulator;
+using ethercat_sim::simulation::VirtualSlave;
 
 namespace {
 constexpr uint16_t MBX_RECV = 0x1000;
@@ -16,13 +17,13 @@ constexpr uint16_t MBX_SEND = 0x1200;
 
 TEST(KickcatAdapter, SDO_Upload_IdentityVendorId)
 {
-    auto sim = std::make_shared<simulation::NetworkSimulator>();
+    auto sim = std::make_shared<NetworkSimulator>();
     sim->initialize();
     sim->clearSlaves();
-    auto s1 = std::make_shared<simulation::VirtualSlave>(1, 0x12345678u, 0x00001111u, "S1");
+    auto s1 = std::make_shared<VirtualSlave>(1, 0x12345678u, 0x00001111u, "S1");
     sim->addVirtualSlave(s1);
 
-    auto nominal = std::make_shared<kickcat_adapter::SimSocket>(sim);
+    auto nominal = std::make_shared<ethercat_sim::kickcat::SimSocket>(sim);
     auto redun   = std::make_shared<::kickcat::SocketNull>();
     auto link    = std::make_shared<::kickcat::Link>(nominal, redun, []{});
 

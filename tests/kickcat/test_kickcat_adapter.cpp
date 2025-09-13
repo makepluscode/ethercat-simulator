@@ -8,20 +8,21 @@
 #include "kickcat/protocol.h"
 #include "kickcat/SocketNull.h"
 
-using namespace ethercat_sim;
+using ethercat_sim::simulation::NetworkSimulator;
+using ethercat_sim::simulation::VirtualSlave;
 
 TEST(KickcatAdapter, ReadWrite_StationAddress)
 {
-    auto sim = std::make_shared<simulation::NetworkSimulator>();
+    auto sim = std::make_shared<NetworkSimulator>();
     sim->initialize();
     sim->clearSlaves();
     sim->setVirtualSlaveCount(0);
 
     // Add one virtual slave with address 1
-    auto s1 = std::make_shared<simulation::VirtualSlave>(1, 0x9A, 0x1111, "S1");
+    auto s1 = std::make_shared<VirtualSlave>(1, 0x9A, 0x1111, "S1");
     sim->addVirtualSlave(s1);
 
-    auto nominal = std::make_shared<kickcat_adapter::SimSocket>(sim);
+    auto nominal = std::make_shared<ethercat_sim::kickcat::SimSocket>(sim);
     auto redun   = std::make_shared<::kickcat::SocketNull>();
     auto link    = std::make_shared<::kickcat::Link>(nominal, redun, []{});
 

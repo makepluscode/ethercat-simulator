@@ -10,14 +10,14 @@
 
 int main()
 {
-    using namespace ethercat_sim;
+    using ethercat_sim::simulation::NetworkSimulator;
 
-    auto sim = std::make_shared<simulation::NetworkSimulator>();
+    auto sim = std::make_shared<NetworkSimulator>();
     sim->initialize();
     sim->setLinkUp(true);
     sim->setVirtualSlaveCount(1); // 하나의 가상 슬레이브
 
-    auto nominal = std::make_shared<kickcat_adapter::SimSocket>(sim);
+    auto nominal = std::make_shared<ethercat_sim::kickcat::SimSocket>(sim);
     auto redun   = std::make_shared<::kickcat::SocketNull>();
     auto link    = std::make_shared<::kickcat::Link>(nominal, redun, []{});
 
@@ -51,4 +51,3 @@ int main()
     std::cout << "PDO LRW example OK" << std::endl;
     return 0;
 }
-

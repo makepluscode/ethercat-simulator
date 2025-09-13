@@ -8,20 +8,19 @@
 #include <fastdds/dds/topic/Topic.hpp>
 #include <iostream>
 
-using namespace eprosima::fastdds::dds;
 using ethercat_sim::communication::TextMsg;
 using ethercat_sim::communication::TextMsgPubSubType;
 
 int main()
 {
-    TypeSupport type(new TextMsgPubSubType());
-    auto* participant = DomainParticipantFactory::get_instance()->create_participant(0, PARTICIPANT_QOS_DEFAULT);
+    eprosima::fastdds::dds::TypeSupport type(new TextMsgPubSubType());
+    auto* participant = eprosima::fastdds::dds::DomainParticipantFactory::get_instance()->create_participant(0, eprosima::fastdds::dds::PARTICIPANT_QOS_DEFAULT);
     if (!participant) { std::cerr << "participant create failed" << std::endl; return 1; }
     type.register_type(participant);
 
-    Topic* topic = participant->create_topic("sim_text", type->getName(), TOPIC_QOS_DEFAULT);
-    Publisher* pub = participant->create_publisher(PUBLISHER_QOS_DEFAULT, nullptr);
-    DataWriter* writer = pub->create_datawriter(topic, DATAWRITER_QOS_DEFAULT, nullptr);
+    eprosima::fastdds::dds::Topic* topic = participant->create_topic("sim_text", type->getName(), eprosima::fastdds::dds::TOPIC_QOS_DEFAULT);
+    eprosima::fastdds::dds::Publisher* pub = participant->create_publisher(eprosima::fastdds::dds::PUBLISHER_QOS_DEFAULT, nullptr);
+    eprosima::fastdds::dds::DataWriter* writer = pub->create_datawriter(topic, eprosima::fastdds::dds::DATAWRITER_QOS_DEFAULT, nullptr);
 
     TextMsg msg;
     msg.text = "Hello from simulator";
@@ -31,10 +30,9 @@ int main()
     pub->delete_datawriter(writer);
     participant->delete_publisher(pub);
     participant->delete_topic(topic);
-    DomainParticipantFactory::get_instance()->delete_participant(participant);
+    eprosima::fastdds::dds::DomainParticipantFactory::get_instance()->delete_participant(participant);
     return 0;
 }
 #else
 int main(){return 0;}
 #endif
-
