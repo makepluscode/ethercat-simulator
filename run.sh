@@ -43,7 +43,10 @@ ensure_build() {
       exit 3
     fi
     echo "[run.sh] Building with Qt6/QML support..."
-    CONAN_OPTIONS="-o with_qt=True" EXTRA_CMAKE_FLAGS="-DBUILD_GUI=ON" BUILD_TYPE="${BUILD_TYPE}" ./build.sh
+    CONAN_OPTIONS="-o with_qt=True" \
+    CONAN_CONF="-c tools.system.package_manager:mode=install -c tools.system.package_manager:sudo=True" \
+    EXTRA_CMAKE_FLAGS="-DBUILD_GUI=ON" \
+    BUILD_TYPE="${BUILD_TYPE}" ./build.sh
   else
     echo "[run.sh] Building (no GUI)..."
     BUILD_TYPE="${BUILD_TYPE}" ./build.sh
@@ -64,4 +67,3 @@ if ${need_gui}; then
 fi
 
 exit ${rc}
-
