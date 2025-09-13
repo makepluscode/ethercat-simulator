@@ -7,7 +7,7 @@
 #include "kickcat/AbstractSocket.h"
 #include "ethercat_sim/simulation/network_simulator.h"
 
-namespace ethercat_sim::kickcat_adapter {
+namespace ethercat_sim::kickcat {
 
 class SimSocket : public ::kickcat::AbstractSocket {
 public:
@@ -25,5 +25,7 @@ private:
     std::chrono::nanoseconds timeout_{std::chrono::milliseconds(2)};
 };
 
-} // namespace ethercat_sim::kickcat_adapter
+} // namespace ethercat_sim::kickcat
 
+// Backward-compatibility alias: ethercat_sim::kickcat_adapter -> ethercat_sim::kickcat
+namespace ethercat_sim { namespace kickcat_adapter = kickcat; }

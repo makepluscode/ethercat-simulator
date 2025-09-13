@@ -6,7 +6,7 @@
 
 #include <algorithm>
 
-namespace ethercat_sim::kickcat_adapter {
+namespace ethercat_sim::kickcat {
 
 void SimSocket::open(std::string const& interface)
 {
@@ -170,4 +170,4 @@ int32_t SimSocket::read(uint8_t* frame, int32_t frame_size)
     return n;
 }
 
-} // namespace ethercat_sim::kickcat_adapter
+} // namespace ethercat_sim::kickcat
