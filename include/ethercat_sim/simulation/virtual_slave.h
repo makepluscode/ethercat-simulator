@@ -28,7 +28,16 @@ public:
 
         // Initialize AL status/state to INIT
         al_state_ = ::kickcat::State::INIT;
+        // Initialize default mailbox offsets/sizes (standard mailbox)
+        mb_recv_offset_ = 0x1000;
+        mb_recv_size_   = 512;
+        mb_send_offset_ = 0x1200;
+        mb_send_size_   = 512;
+        mb_out_.assign(mb_send_size_, 0);
+        mb_in_.assign(mb_recv_size_, 0);
+
         syncCoreRegisters_();
+        syncSMRegisters_();
     }
 
     std::uint16_t address() const noexcept { return address_; }
@@ -45,19 +54,60 @@ public:
     // Minimal register map (byte-addressable)
     bool read(std::uint16_t reg, std::uint8_t* dst, std::size_t len) const noexcept
     {
-        if ((static_cast<std::size_t>(reg) + len) > regs_.size()) {
-            return false;
+        // ESC register space
+        if ((static_cast<std::size_t>(reg) + len) <= regs_.size()) {
+            std::copy(regs_.begin() + reg, regs_.begin() + reg + len, dst);
+            return true;
         }
-        std::copy(regs_.begin() + reg, regs_.begin() + reg + len, dst);
-        return true;
+
+        // Mailbox send area (slave -> master)
+        if ((reg >= mb_send_offset_) && ((static_cast<std::size_t>(reg) + len) <= (mb_send_offset_ + mb_send_size_))) {
+            std::size_t off = static_cast<std::size_t>(reg - mb_send_offset_);
+            std::size_t n = std::min(len, mb_out_.size() - off);
+            std::copy(mb_out_.begin() + off, mb_out_.begin() + off + n, dst);
+            // Reading the whole message: clear can_read flag
+            mb_have_reply_ = false;
+            syncSMStatus_();
+            return true;
+        }
+
+        return false;
     }
 
     bool write(std::uint16_t reg, std::uint8_t const* src, std::size_t len) noexcept
     {
-        if ((static_cast<std::size_t>(reg) + len) > regs_.size()) {
+        // ESC register space
+        if ((static_cast<std::size_t>(reg) + len) <= regs_.size()) {
+            std::copy(src, src + len, regs_.begin() + reg);
+        }
+        else if ((reg >= mb_recv_offset_) && ((static_cast<std::size_t>(reg) + len) <= (mb_recv_offset_ + mb_recv_size_))) {
+            // Mailbox recv area (master -> slave)
+            std::size_t off = static_cast<std::size_t>(reg - mb_recv_offset_);
+            std::size_t n = std::min(len, mb_in_.size() - off);
+            std::copy(src, src + n, mb_in_.begin() + off);
+            handleMailboxWrite_(off, n);
+            return true;
+        }
+        else if ((reg >= ::kickcat::reg::SYNC_MANAGER) && (reg < (::kickcat::reg::SYNC_MANAGER + 16))) {
+            // Update mailbox SM config if written via FPWR
+            // We accept up to 2 SM entries (8 bytes each)
+            std::size_t remaining = len;
+            std::size_t pos = 0;
+            while (remaining >= 8) {
+                auto start = static_cast<uint16_t>(src[pos] | (static_cast<uint16_t>(src[pos+1]) << 8));
+                auto length= static_cast<uint16_t>(src[pos+2] | (static_cast<uint16_t>(src[pos+3]) << 8));
+                int sm_index = static_cast<int>((reg + pos - ::kickcat::reg::SYNC_MANAGER) / 8);
+                if (sm_index == 0) { mb_recv_offset_ = start; mb_recv_size_ = length; if (mb_in_.size() != mb_recv_size_) mb_in_.assign(mb_recv_size_, 0); }
+                if (sm_index == 1) { mb_send_offset_ = start; mb_send_size_ = length; if (mb_out_.size() != mb_send_size_) mb_out_.assign(mb_send_size_, 0); }
+                pos += 8; remaining -= 8;
+            }
+            syncSMRegisters_();
+            return true;
+        }
+        else {
             return false;
         }
-        std::copy(src, src + len, regs_.begin() + reg);
+
         // If STATION_ADDR is written, keep internal address in sync
         if (reg == 0x0010 && len >= 2) {
             address_ = static_cast<std::uint16_t>(regs_[0x0010] | (static_cast<uint16_t>(regs_[0x0011]) << 8));
@@ -95,6 +145,91 @@ private:
         regs_.at(::kickcat::reg::AL_STATUS_CODE + 1) = static_cast<uint8_t>((al_status_code_ >> 8) & 0xFF);
     }
 
+    void syncSMRegisters_() noexcept
+    {
+        // SM0: mailbox out (master -> slave)
+        regs_.at(::kickcat::reg::SYNC_MANAGER_0 + 0) = static_cast<uint8_t>(mb_recv_offset_ & 0xFF);
+        regs_.at(::kickcat::reg::SYNC_MANAGER_0 + 1) = static_cast<uint8_t>((mb_recv_offset_ >> 8) & 0xFF);
+        regs_.at(::kickcat::reg::SYNC_MANAGER_0 + 2) = static_cast<uint8_t>(mb_recv_size_ & 0xFF);
+        regs_.at(::kickcat::reg::SYNC_MANAGER_0 + 3) = static_cast<uint8_t>((mb_recv_size_ >> 8) & 0xFF);
+        // control/status/activate/pdi_control left mostly for Bus writes; we maintain status bit
+        // SM1: mailbox in (slave -> master)
+        regs_.at(::kickcat::reg::SYNC_MANAGER_1 + 0) = static_cast<uint8_t>(mb_send_offset_ & 0xFF);
+        regs_.at(::kickcat::reg::SYNC_MANAGER_1 + 1) = static_cast<uint8_t>((mb_send_offset_ >> 8) & 0xFF);
+        regs_.at(::kickcat::reg::SYNC_MANAGER_1 + 2) = static_cast<uint8_t>(mb_send_size_ & 0xFF);
+        regs_.at(::kickcat::reg::SYNC_MANAGER_1 + 3) = static_cast<uint8_t>((mb_send_size_ >> 8) & 0xFF);
+        syncSMStatus_();
+    }
+
+    void syncSMStatus_() const noexcept
+    {
+        // Update only status byte for SM0 and SM1
+        // SM0 status: we keep writable -> not full
+        auto& reg0 = const_cast<std::vector<std::uint8_t>&>(regs_);
+        reg0[::kickcat::reg::SYNC_MANAGER_0 + ::kickcat::reg::SM_STATS] = 0x00;
+        // SM1 status: set MAILBOX_STATUS when we have a reply ready
+        uint8_t st1 = mb_have_reply_ ? ::kickcat::MAILBOX_STATUS : 0x00;
+        reg0[::kickcat::reg::SYNC_MANAGER_1 + ::kickcat::reg::SM_STATS] = st1;
+    }
+
+    void handleMailboxWrite_(std::size_t offset, std::size_t len) noexcept
+    {
+        (void)offset; (void)len;
+        // For simplicity, assume a whole message is written at once starting at offset 0
+        auto* header = reinterpret_cast<::kickcat::mailbox::Header*>(mb_in_.data());
+        if (header->type != ::kickcat::mailbox::CoE) {
+            return;
+        }
+        auto* coe = ::kickcat::pointData<::kickcat::CoE::Header>(reinterpret_cast<uint8_t*>(header));
+        if (coe->service != ::kickcat::CoE::SDO_REQUEST) {
+            return;
+        }
+        auto* sdo = ::kickcat::pointData<::kickcat::CoE::ServiceData>(coe);
+        if (sdo->command == ::kickcat::CoE::SDO::request::UPLOAD) {
+            // Support a few OD entries (expedited): 0x1018 sub 1..4
+            uint8_t* payload = ::kickcat::pointData<uint8_t>(sdo);
+            uint32_t value = 0;
+            if (sdo->index == 0x1018 && sdo->subindex == 1) {
+                value = vendor_id_;
+            } else if (sdo->index == 0x1018 && sdo->subindex == 2) {
+                value = product_code_;
+            } else if (sdo->index == 0x1018 && sdo->subindex == 3) {
+                value = 0; // revision
+            } else if (sdo->index == 0x1018 && sdo->subindex == 4) {
+                value = 0; // serial
+            } else {
+                // unsupported: ignore for now
+                return;
+            }
+
+            // Compose response in mb_out_
+            std::fill(mb_out_.begin(), mb_out_.end(), 0);
+            auto* rh = reinterpret_cast<::kickcat::mailbox::Header*>(mb_out_.data());
+            auto* rc = ::kickcat::pointData<::kickcat::CoE::Header>(reinterpret_cast<uint8_t*>(rh));
+            auto* rs = ::kickcat::pointData<::kickcat::CoE::ServiceData>(rc);
+            rh->len = 10; // fixed for expedited
+            rh->type = ::kickcat::mailbox::CoE;
+            rh->count = header->count; // echo session handle
+            rc->service = ::kickcat::CoE::SDO_RESPONSE;
+            rc->number = 0;
+            rs->index = sdo->index;
+            rs->subindex = sdo->subindex;
+            rs->command = ::kickcat::CoE::SDO::response::UPLOAD;
+            rs->transfer_type = 1;
+            rs->size_indicator = 1;
+            uint8_t unused = 0;
+            if (true) {
+                // 4-byte expedited value
+                std::memcpy(::kickcat::pointData<uint8_t>(rs), &value, sizeof(uint32_t));
+                unused = 0; // 4 - 4 = 0
+            }
+            rs->block_size = (unused & 0x3);
+
+            mb_have_reply_ = true;
+            syncSMStatus_();
+        }
+    }
+
     std::uint16_t address_ {};
     std::uint32_t vendor_id_ {};
     std::uint32_t product_code_ {};
@@ -102,7 +237,16 @@ private:
     bool online_ {true};
     ::kickcat::State al_state_ {::kickcat::State::INIT};
     uint16_t al_status_code_ {0};
-    std::vector<std::uint8_t> regs_ = std::vector<std::uint8_t>(2048, 0);
+    std::vector<std::uint8_t> regs_ = std::vector<std::uint8_t>(4096, 0);
+
+    // Mailbox (standard) minimal simulation
+    uint16_t mb_recv_offset_ {0};
+    uint16_t mb_recv_size_ {0};
+    uint16_t mb_send_offset_ {0};
+    uint16_t mb_send_size_ {0};
+    mutable bool mb_have_reply_ {false};
+    mutable std::vector<std::uint8_t> mb_out_;
+    std::vector<std::uint8_t> mb_in_;
 };
 
 } // namespace ethercat_sim::simulation
