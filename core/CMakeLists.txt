@@ -8,6 +8,10 @@ target_include_directories(ethercat_core
 )
 
 target_compile_features(ethercat_core PUBLIC cxx_std_17)
+target_link_libraries(ethercat_core
+    PUBLIC
+        kickcat::kickcat
+)
 
 if(HAVE_KICKCAT)
     add_library(ethercat_kickcat_adapter STATIC
