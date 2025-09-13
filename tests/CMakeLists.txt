@@ -38,4 +38,17 @@ if(HAVE_KICKCAT)
             GTest::gtest_main
     )
     gtest_discover_tests(test_kickcat_adapter)
+
+    add_executable(test_kickcat_apr_lr
+        kickcat/test_apr_lr.cpp
+    )
+    target_link_libraries(test_kickcat_apr_lr
+        PRIVATE
+            ethercat_core
+            ethercat_kickcat_adapter
+            kickcat::kickcat
+            GTest::gtest
+            GTest::gtest_main
+    )
+    gtest_discover_tests(test_kickcat_apr_lr)
 endif()

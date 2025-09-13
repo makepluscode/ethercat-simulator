@@ -78,6 +78,56 @@ int32_t SimSocket::write(uint8_t const* frame, int32_t frame_size)
                 ack = ok ? 1 : 0;
                 break;
             }
+            case ::kickcat::Command::APRD:
+            case ::kickcat::Command::APWR:
+            case ::kickcat::Command::APRW: {
+                // Auto-increment physical addressing: map position to slave index (0-based)
+                auto [pos, ado] = ::kickcat::extractAddress(hdr->address);
+                std::size_t idx = 0;
+                if (pos == 0) {
+                    idx = 0;
+                } else if (pos & 0x8000) {
+                    idx = static_cast<std::size_t>(static_cast<uint16_t>(0 - pos));
+                } else {
+                    idx = pos;
+                }
+                bool ok = false;
+                switch (hdr->command) {
+                    case ::kickcat::Command::APRD:
+                        ok = sim_->readFromSlaveByIndex(idx, ado, data, hdr->len);
+                        break;
+                    case ::kickcat::Command::APWR:
+                        ok = sim_->writeToSlaveByIndex(idx, ado, data, hdr->len);
+                        break;
+                    case ::kickcat::Command::APRW:
+                        ok = sim_->writeToSlaveByIndex(idx, ado, data, hdr->len);
+                        break;
+                    default: break;
+                }
+                ack = ok ? 1 : 0;
+                break;
+            }
+            case ::kickcat::Command::LRD:
+            case ::kickcat::Command::LWR:
+            case ::kickcat::Command::LRW: {
+                // Minimal logical memory emulation in simulator
+                uint32_t logical_address = hdr->address; // full 32-bit
+                bool ok = false;
+                switch (hdr->command) {
+                    case ::kickcat::Command::LRD:
+                        ok = sim_->readLogical(logical_address, data, hdr->len);
+                        break;
+                    case ::kickcat::Command::LWR:
+                        ok = sim_->writeLogical(logical_address, data, hdr->len);
+                        break;
+                    case ::kickcat::Command::LRW:
+                        ok = sim_->writeLogical(logical_address, data, hdr->len);
+                        break;
+                    default: break;
+                }
+                ack = ok ? 1 : 0;
+                break;
+            }
             default:
                 // Minimal emulation: acknowledge single-target operations if any online
                 ack = (sim_->onlineSlaveCount() > 0) ? 1 : 0;

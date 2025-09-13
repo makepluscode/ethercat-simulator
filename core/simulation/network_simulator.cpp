@@ -138,4 +138,48 @@ bool NetworkSimulator::readFromSlave(std::uint16_t station_address, std::uint16_
     return false;
 }
 
+bool NetworkSimulator::writeToSlaveByIndex(std::size_t index, std::uint16_t reg, const std::uint8_t* data, std::size_t len) noexcept
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (index < slaves_.size()) {
+        auto& s = slaves_[index];
+        if (s && s->online()) {
+            return s->write(reg, data, len);
+        }
+    }
+    return false;
+}
+
+bool NetworkSimulator::readFromSlaveByIndex(std::size_t index, std::uint16_t reg, std::uint8_t* out, std::size_t len) const noexcept
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (index < slaves_.size()) {
+        auto const& s = slaves_[index];
+        if (s && s->online()) {
+            return s->read(reg, out, len);
+        }
+    }
+    return false;
+}
+
+bool NetworkSimulator::writeLogical(std::uint32_t logical_address, const std::uint8_t* data, std::size_t len) noexcept
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    if ((static_cast<std::size_t>(logical_address) + len) > logical_.size()) {
+        return false;
+    }
+    std::copy(data, data + len, logical_.begin() + logical_address);
+    return true;
+}
+
+bool NetworkSimulator::readLogical(std::uint32_t logical_address, std::uint8_t* out, std::size_t len) const noexcept
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    if ((static_cast<std::size_t>(logical_address) + len) > logical_.size()) {
+        return false;
+    }
+    std::copy(logical_.begin() + logical_address, logical_.begin() + logical_address + len, out);
+    return true;
+}
+
 } // namespace ethercat_sim::simulation

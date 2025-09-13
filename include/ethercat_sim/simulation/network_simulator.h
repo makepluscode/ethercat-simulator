@@ -41,6 +41,14 @@ public:
     bool writeToSlave(std::uint16_t station_address, std::uint16_t reg, const std::uint8_t* data, std::size_t len) noexcept;
     bool readFromSlave(std::uint16_t station_address, std::uint16_t reg, std::uint8_t* out, std::size_t len) const noexcept;
 
+    // Auto-increment physical addressing by slave index (0-based)
+    bool writeToSlaveByIndex(std::size_t index, std::uint16_t reg, const std::uint8_t* data, std::size_t len) noexcept;
+    bool readFromSlaveByIndex(std::size_t index, std::uint16_t reg, std::uint8_t* out, std::size_t len) const noexcept;
+
+    // Logical memory (LRD/LWR/LRW minimal emulation)
+    bool writeLogical(std::uint32_t logical_address, const std::uint8_t* data, std::size_t len) noexcept;
+    bool readLogical(std::uint32_t logical_address, std::uint8_t* out, std::size_t len) const noexcept;
+
 private:
     struct FrameItem {
         communication::EtherCATFrame frame;
@@ -53,6 +61,7 @@ private:
     mutable std::mutex mutex_;
     std::deque<FrameItem> queue_;
     std::vector<std::shared_ptr<VirtualSlave>> slaves_;
+    std::vector<std::uint8_t> logical_ = std::vector<std::uint8_t>(16384, 0);
 };
 
 } // namespace ethercat_sim::simulation
