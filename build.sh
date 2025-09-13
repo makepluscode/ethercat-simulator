@@ -18,7 +18,7 @@ mkdir -p "${BUILD_DIR}"
 if command -v conan >/dev/null 2>&1; then
   echo "[build.sh] Conan detected. Installing dependencies..."
   conan profile detect || true
-  conan install . -of "${BUILD_DIR}" -s build_type="${BUILD_TYPE}" --build=missing ${CONAN_OPTIONS:-}
+  conan install . -of "${BUILD_DIR}" -s build_type="${BUILD_TYPE}" --build=missing ${CONAN_OPTIONS:-} ${CONAN_CONF:-}
   TOOLCHAIN="-DCMAKE_TOOLCHAIN_FILE=${BUILD_DIR}/conan_toolchain.cmake"
 else
   echo "[build.sh] Conan not found. Proceeding without it."

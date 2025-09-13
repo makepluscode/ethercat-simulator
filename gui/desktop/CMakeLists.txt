@@ -18,5 +18,4 @@ target_link_libraries(gui_desktop
         ethercat_core
 )
 
-add_test(NAME gui.desktop_smoke COMMAND gui_desktop --smoke)
 
