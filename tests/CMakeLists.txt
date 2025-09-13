@@ -25,6 +25,17 @@ target_link_libraries(test_slave_registers
 )
 gtest_discover_tests(test_slave_registers)
 
+add_executable(test_simulator_registry
+    simulation/test_simulator_registry.cpp
+)
+target_link_libraries(test_simulator_registry
+    PRIVATE
+        ethercat_core
+        GTest::gtest
+        GTest::gtest_main
+)
+gtest_discover_tests(test_simulator_registry)
+
 add_executable(test_mailbox
     simulation/test_mailbox.cpp
 )

@@ -106,13 +106,29 @@ bool NetworkSimulator::receiveFrame(communication::EtherCATFrame& out) noexcept
     return true;
 }
 
+std::shared_ptr<VirtualSlave> NetworkSimulator::getSlaveByStationAddressNoLock(std::uint16_t addr) const noexcept
+{
+    for (auto const& s : slaves_) {
+        if (s && s->online() && s->address() == addr) {
+            return s;
+        }
+    }
+    return nullptr;
+}
+
+std::shared_ptr<VirtualSlave> NetworkSimulator::getSlaveByIndexNoLock(std::size_t index) const noexcept
+{
+    if (index < slaves_.size()) {
+        return slaves_[index];
+    }
+    return nullptr;
+}
+
 bool NetworkSimulator::writeToSlave(std::uint16_t station_address, std::uint16_t reg, const std::uint8_t* data, std::size_t len) noexcept
 {
     std::lock_guard<std::mutex> lock(mutex_);
-    for (auto& s : slaves_) {
-        if (s && s->online() && s->address() == station_address) {
-            return s->write(reg, data, len);
-        }
+    if (auto s = getSlaveByStationAddressNoLock(station_address)) {
+        return s->write(reg, data, len);
     }
     // If registry does not contain explicit slaves but virtualSlaveCount_ suggests presence,
     // accept write as no-op success for minimal compatibility.
@@ -125,10 +141,8 @@ bool NetworkSimulator::writeToSlave(std::uint16_t station_address, std::uint16_t
 bool NetworkSimulator::readFromSlave(std::uint16_t station_address, std::uint16_t reg, std::uint8_t* out, std::size_t len) const noexcept
 {
     std::lock_guard<std::mutex> lock(mutex_);
-    for (auto const& s : slaves_) {
-        if (s && s->online() && s->address() == station_address) {
-            return s->read(reg, out, len);
-        }
+    if (auto s = getSlaveByStationAddressNoLock(station_address)) {
+        return s->read(reg, out, len);
     }
     if (slaves_.empty() && station_address >= 1 && station_address <= virtualSlaveCount_) {
         // Fill zeros if not explicitly modeled
@@ -141,11 +155,8 @@ bool NetworkSimulator::readFromSlave(std::uint16_t station_address, std::uint16_
 bool NetworkSimulator::writeToSlaveByIndex(std::size_t index, std::uint16_t reg, const std::uint8_t* data, std::size_t len) noexcept
 {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (index < slaves_.size()) {
-        auto& s = slaves_[index];
-        if (s && s->online()) {
-            return s->write(reg, data, len);
-        }
+    if (auto s = getSlaveByIndexNoLock(index)) {
+        if (s->online()) return s->write(reg, data, len);
     }
     return false;
 }
@@ -153,11 +164,8 @@ bool NetworkSimulator::writeToSlaveByIndex(std::size_t index, std::uint16_t reg,
 bool NetworkSimulator::readFromSlaveByIndex(std::size_t index, std::uint16_t reg, std::uint8_t* out, std::size_t len) const noexcept
 {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (index < slaves_.size()) {
-        auto const& s = slaves_[index];
-        if (s && s->online()) {
-            return s->read(reg, out, len);
-        }
+    if (auto s = getSlaveByIndexNoLock(index)) {
+        if (s->online()) return s->read(reg, out, len);
     }
     return false;
 }

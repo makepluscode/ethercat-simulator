@@ -62,6 +62,10 @@ private:
     std::deque<FrameItem> queue_;
     std::vector<std::shared_ptr<VirtualSlave>> slaves_;
     std::vector<std::uint8_t> logical_ = std::vector<std::uint8_t>(16384, 0);
+
+    // Internal helpers (no locking) to centralize slave lookup
+    std::shared_ptr<VirtualSlave> getSlaveByStationAddressNoLock(std::uint16_t addr) const noexcept;
+    std::shared_ptr<VirtualSlave> getSlaveByIndexNoLock(std::size_t index) const noexcept;
 };
 
 } // namespace ethercat_sim::simulation
