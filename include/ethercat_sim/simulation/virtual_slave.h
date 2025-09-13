@@ -54,6 +54,19 @@ public:
     // Minimal register map (byte-addressable)
     bool read(std::uint16_t reg, std::uint8_t* dst, std::size_t len) const noexcept
     {
+        // Handle EEPROM data read (4 bytes per request)
+        if (reg == ::kickcat::reg::EEPROM_DATA && len >= 4) {
+            uint32_t val = 0;
+            uint16_t lo = 0, hi = 0;
+            if (eeprom_addr_ + 1 < eeprom_.size()) {
+                lo = eeprom_[eeprom_addr_];
+                hi = eeprom_[eeprom_addr_ + 1];
+            }
+            val = static_cast<uint32_t>(lo) | (static_cast<uint32_t>(hi) << 16);
+            std::memcpy(dst, &val, sizeof(uint32_t));
+            return true;
+        }
+
         // ESC register space
         if ((static_cast<std::size_t>(reg) + len) <= regs_.size()) {
             std::copy(regs_.begin() + reg, regs_.begin() + reg + len, dst);
@@ -76,6 +89,14 @@ public:
 
     bool write(std::uint16_t reg, std::uint8_t const* src, std::size_t len) noexcept
     {
+        // Handle EEPROM control write (request)
+        if (reg == ::kickcat::reg::EEPROM_CONTROL && len >= 6) {
+            // struct { uint16_t command; uint16_t addressLow; uint16_t addressHigh; }
+            uint16_t addressLow = static_cast<uint16_t>(src[2] | (static_cast<uint16_t>(src[3]) << 8));
+            eeprom_addr_ = addressLow; // words
+            return true;
+        }
+
         // ESC register space
         if ((static_cast<std::size_t>(reg) + len) <= regs_.size()) {
             std::copy(src, src + len, regs_.begin() + reg);
@@ -230,6 +251,18 @@ private:
     mutable bool mb_have_reply_ {false};
     mutable std::vector<std::uint8_t> mb_out_;
     std::vector<std::uint8_t> mb_in_;
+
+    // EEPROM / SII minimal stub
+    uint16_t eeprom_addr_ {0}; // word address for next read
+    std::vector<uint16_t> eeprom_ = []{
+        std::vector<uint16_t> v(128, 0);
+        // Ensure End category (0xFFFF) appears after 32 double-words
+        // so Bus::fetchEeprom() can stop
+        if (v.size() > 66) {
+            v[65] = 0xFFFF; // upper 16-bits at pos=64
+        }
+        return v;
+    }();
 };
 
 } // namespace ethercat_sim::simulation
