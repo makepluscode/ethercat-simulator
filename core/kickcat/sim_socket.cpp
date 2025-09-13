@@ -43,20 +43,48 @@ int32_t SimSocket::write(uint8_t const* frame, int32_t frame_size)
             break; // no more datagrams
         }
 
-        uint16_t value = 0;
+        uint16_t ack = 0;
         switch (hdr->command) {
             case ::kickcat::Command::BRD:
+                // Broadcast read: just report how many slaves would respond
+                ack = static_cast<uint16_t>(sim_->onlineSlaveCount());
+                break;
             case ::kickcat::Command::BWR:
             case ::kickcat::Command::BRW:
-                value = static_cast<uint16_t>(sim_->virtualSlaveCount());
+                // Broadcast write: acknowledge all online
+                ack = static_cast<uint16_t>(sim_->onlineSlaveCount());
                 break;
+            case ::kickcat::Command::FPRD:
+            case ::kickcat::Command::FPWR:
+            case ::kickcat::Command::FPRW: {
+                // Station-addressed ops: operate on addressed slave registers
+                auto [adp, ado] = ::kickcat::extractAddress(hdr->address);
+                bool ok = false;
+                switch (hdr->command) {
+                    case ::kickcat::Command::FPRD:
+                        ok = sim_->readFromSlave(adp, ado, data, hdr->len);
+                        break;
+                    case ::kickcat::Command::FPWR:
+                        ok = sim_->writeToSlave(adp, ado, data, hdr->len);
+                        break;
+                    case ::kickcat::Command::FPRW: {
+                        // read then write back provided payload
+                        // minimal behavior: perform write and report success
+                        ok = sim_->writeToSlave(adp, ado, data, hdr->len);
+                        break;
+                    }
+                    default: break;
+                }
+                ack = ok ? 1 : 0;
+                break;
+            }
             default:
-                // Minimal emulation: acknowledge single-target operations
-                value = (sim_->virtualSlaveCount() > 0) ? 1 : 0;
+                // Minimal emulation: acknowledge single-target operations if any online
+                ack = (sim_->onlineSlaveCount() > 0) ? 1 : 0;
                 break;
         }
         if (wkc) {
-            *wkc = value;
+            *wkc = ack;
         }
     }
 
