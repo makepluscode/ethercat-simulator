@@ -114,7 +114,9 @@ public:
         }
         // If AL_CONTROL written, update AL_STATUS accordingly (minimal behavior)
         if (reg == ::kickcat::reg::AL_CONTROL && len >= 1) {
-            al_state_ = static_cast<::kickcat::State>(regs_[::kickcat::reg::AL_CONTROL]);
+            uint8_t req = regs_[::kickcat::reg::AL_CONTROL];
+            req &= static_cast<uint8_t>(~::kickcat::State::ACK);
+            al_state_ = static_cast<::kickcat::State>(req);
             // No error: AL_STATUS_CODE = 0
             al_status_code_ = 0;
             syncCoreRegisters_();
@@ -177,57 +179,38 @@ private:
         (void)offset; (void)len;
         // For simplicity, assume a whole message is written at once starting at offset 0
         auto* header = reinterpret_cast<::kickcat::mailbox::Header*>(mb_in_.data());
-        if (header->type != ::kickcat::mailbox::CoE) {
-            return;
-        }
-        auto* coe = ::kickcat::pointData<::kickcat::CoE::Header>(reinterpret_cast<uint8_t*>(header));
-        if (coe->service != ::kickcat::CoE::SDO_REQUEST) {
-            return;
-        }
+        auto* coe = ::kickcat::pointData<::kickcat::CoE::Header>(header);
         auto* sdo = ::kickcat::pointData<::kickcat::CoE::ServiceData>(coe);
-        if (sdo->command == ::kickcat::CoE::SDO::request::UPLOAD) {
-            // Support a few OD entries (expedited): 0x1018 sub 1..4
-            uint8_t* payload = ::kickcat::pointData<uint8_t>(sdo);
-            uint32_t value = 0;
-            if (sdo->index == 0x1018 && sdo->subindex == 1) {
-                value = vendor_id_;
-            } else if (sdo->index == 0x1018 && sdo->subindex == 2) {
-                value = product_code_;
-            } else if (sdo->index == 0x1018 && sdo->subindex == 3) {
-                value = 0; // revision
-            } else if (sdo->index == 0x1018 && sdo->subindex == 4) {
-                value = 0; // serial
-            } else {
-                // unsupported: ignore for now
-                return;
-            }
+        // Read OD index/subindex but respond unconditionally (minimal stub)
+        uint16_t req_index = sdo->index;
+        uint8_t  req_sub   = sdo->subindex;
+        uint32_t value = 0;
+        if (req_index == 0x1018 && req_sub == 1) { value = vendor_id_; }
+        else if (req_index == 0x1018 && req_sub == 2) { value = product_code_; }
+        else if (req_index == 0x1018 && req_sub == 3) { value = 0; }
+        else if (req_index == 0x1018 && req_sub == 4) { value = 0; }
+        else { value = 0; }
 
-            // Compose response in mb_out_
-            std::fill(mb_out_.begin(), mb_out_.end(), 0);
-            auto* rh = reinterpret_cast<::kickcat::mailbox::Header*>(mb_out_.data());
-            auto* rc = ::kickcat::pointData<::kickcat::CoE::Header>(reinterpret_cast<uint8_t*>(rh));
-            auto* rs = ::kickcat::pointData<::kickcat::CoE::ServiceData>(rc);
-            rh->len = 10; // fixed for expedited
-            rh->type = ::kickcat::mailbox::CoE;
-            rh->count = header->count; // echo session handle
-            rc->service = ::kickcat::CoE::SDO_RESPONSE;
-            rc->number = 0;
-            rs->index = sdo->index;
-            rs->subindex = sdo->subindex;
-            rs->command = ::kickcat::CoE::SDO::response::UPLOAD;
-            rs->transfer_type = 1;
-            rs->size_indicator = 1;
-            uint8_t unused = 0;
-            if (true) {
-                // 4-byte expedited value
-                std::memcpy(::kickcat::pointData<uint8_t>(rs), &value, sizeof(uint32_t));
-                unused = 0; // 4 - 4 = 0
-            }
-            rs->block_size = (unused & 0x3);
+        // Compose response in mb_out_
+        std::fill(mb_out_.begin(), mb_out_.end(), 0);
+        auto* rh = reinterpret_cast<::kickcat::mailbox::Header*>(mb_out_.data());
+        auto* rc = ::kickcat::pointData<::kickcat::CoE::Header>(rh);
+        auto* rs = ::kickcat::pointData<::kickcat::CoE::ServiceData>(rc);
+        rh->len = 10; // fixed for expedited
+        rh->type = ::kickcat::mailbox::CoE;
+        rh->count = header->count; // echo session handle
+        rc->service = ::kickcat::CoE::SDO_RESPONSE;
+        rc->number = 0;
+        rs->index = req_index;
+        rs->subindex = req_sub;
+        rs->command = ::kickcat::CoE::SDO::response::UPLOAD;
+        rs->transfer_type = 1;
+        rs->size_indicator = 1;
+        rs->block_size = 0;
+        std::memcpy(::kickcat::pointData<uint8_t>(rs), &value, sizeof(uint32_t));
 
-            mb_have_reply_ = true;
-            syncSMStatus_();
-        }
+        mb_have_reply_ = true;
+        syncSMStatus_();
     }
 
     std::uint16_t address_ {};

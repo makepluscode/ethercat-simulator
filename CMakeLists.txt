@@ -39,6 +39,7 @@ add_subdirectory(core)
 if(BUILD_EXAMPLES)
     add_subdirectory(examples/hello)
     add_subdirectory(examples/kickcat_scan)
+    add_subdirectory(examples/pdo_lrw)
 endif()
 
 if(BUILD_TESTING)

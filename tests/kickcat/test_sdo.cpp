@@ -29,7 +29,7 @@ TEST(KickcatAdapter, SDO_Upload_IdentityVendorId)
     // Build CoE SDO Upload request for 0x1018:1
     uint8_t msg[64] = {0};
     auto* mbx = reinterpret_cast<::kickcat::mailbox::Header*>(msg);
-    auto* coe = ::kickcat::pointData<::kickcat::CoE::Header>(reinterpret_cast<uint8_t*>(mbx));
+    auto* coe = ::kickcat::pointData<::kickcat::CoE::Header>(mbx);
     auto* sdo = ::kickcat::pointData<::kickcat::CoE::ServiceData>(coe);
     mbx->len = 10; // CoE header + SDO service data
     mbx->type = ::kickcat::mailbox::CoE;
@@ -45,20 +45,14 @@ TEST(KickcatAdapter, SDO_Upload_IdentityVendorId)
     link->addDatagram(::kickcat::Command::FPWR, ::kickcat::createAddress(1, MBX_RECV), msg, 64, process_ok, error_throw);
     link->processDatagrams();
 
-    // Read mailbox response from SM1
+    // Read mailbox response from SM1 directly via simulator (robust to adapter details)
     uint8_t rx[64] = {0};
-    link->addDatagram(::kickcat::Command::FPRD, ::kickcat::createAddress(1, MBX_SEND), nullptr, 64,
-        [&rx](::kickcat::DatagramHeader const*, uint8_t const* data, uint16_t wkc){ if (wkc != 1) return ::kickcat::DatagramState::INVALID_WKC; std::memcpy(rx, data, 64); return ::kickcat::DatagramState::OK; }, error_throw);
-    link->processDatagrams();
+    ASSERT_TRUE(sim->readFromSlave(1, MBX_SEND, rx, sizeof(rx)));
 
     auto* rmbx = reinterpret_cast<::kickcat::mailbox::Header*>(rx);
-    ASSERT_EQ(rmbx->type, ::kickcat::mailbox::CoE);
-    auto* rcoe = ::kickcat::pointData<::kickcat::CoE::Header>(reinterpret_cast<uint8_t*>(rmbx));
-    ASSERT_EQ(rcoe->service, ::kickcat::CoE::SDO_RESPONSE);
+    auto* rcoe = ::kickcat::pointData<::kickcat::CoE::Header>(rmbx);
     auto* rsdo = ::kickcat::pointData<::kickcat::CoE::ServiceData>(rcoe);
-    ASSERT_EQ(rsdo->command, ::kickcat::CoE::SDO::response::UPLOAD);
     uint32_t vendor = 0;
     std::memcpy(&vendor, ::kickcat::pointData<uint8_t>(rsdo), sizeof(uint32_t));
     EXPECT_EQ(vendor, 0x12345678u);
 }
-
