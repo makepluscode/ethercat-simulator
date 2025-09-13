@@ -5,6 +5,7 @@ set -euo pipefail
 # Usage:
 #   ./build.sh           -> configure + build (Release)
 #   ./build.sh test      -> configure + build + run tests
+#   ./build.sh tui       -> configure + build (TUI deps via Conan)
 
 MODE=${1:-build}
 BUILD_DIR=${BUILD_DIR:-build}
@@ -14,6 +15,11 @@ JOBS=${JOBS:-$(command -v nproc >/dev/null 2>&1 && nproc || echo 4)}
 echo "[build.sh] mode=${MODE} type=${BUILD_TYPE} dir=${BUILD_DIR} jobs=${JOBS}"
 
 mkdir -p "${BUILD_DIR}"
+
+# If user asked for TUI and didn't set CONAN_OPTIONS, enable FTXUI by default
+if [[ "${MODE}" == "tui" ]]; then
+  CONAN_OPTIONS="-o with_ftxui=True ${CONAN_OPTIONS:-}"
+fi
 
 if command -v conan >/dev/null 2>&1; then
   echo "[build.sh] Conan detected. Installing dependencies..."

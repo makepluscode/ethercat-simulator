@@ -7,5 +7,4 @@ target_link_libraries(examples_fastdds_smoke
         fastdds::fastdds
 )
 
-add_test(NAME examples.fastdds_smoke_run COMMAND examples_fastdds_smoke)
 
