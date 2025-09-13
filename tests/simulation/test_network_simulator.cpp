@@ -1,7 +1,9 @@
 #include <gtest/gtest.h>
+#include <cstring>
 
 #include "ethercat_sim/simulation/network_simulator.h"
 #include "ethercat_sim/communication/ethercat_frame.h"
+#include "ethercat_sim/simulation/virtual_slave.h"
 
 using ethercat_sim::simulation::NetworkSimulator;
 using ethercat_sim::communication::EtherCATFrame;
@@ -33,3 +35,40 @@ TEST(NetworkSimulator, SendReceive_WhenLinkDown_Fails)
     EXPECT_FALSE(sim.receiveFrame(rx));
 }
 
+TEST(NetworkSimulator, VirtualSlaveRegistry_AddAndCount)
+{
+    using ethercat_sim::simulation::VirtualSlave;
+
+    NetworkSimulator sim;
+    sim.initialize();
+    sim.clearSlaves();
+    EXPECT_EQ(sim.virtualSlaveCount(), 0u);
+
+    // Set via count API
+    sim.setVirtualSlaveCount(2);
+    EXPECT_EQ(sim.virtualSlaveCount(), 2u);
+
+    // Add an actual slave object
+    auto s = std::make_shared<VirtualSlave>(/*address*/1, /*vendor*/0x9A, /*product*/0x1234, "stub");
+    sim.addVirtualSlave(s);
+    EXPECT_EQ(sim.virtualSlaveCount(), 3u);
+}
+
+TEST(NetworkSimulator, RegisterReadWrite_ByStationAddress)
+{
+    using ethercat_sim::simulation::VirtualSlave;
+
+    NetworkSimulator sim;
+    sim.initialize();
+    sim.clearSlaves();
+
+    auto s1 = std::make_shared<VirtualSlave>(1, 0x9A, 0x1111, "S1");
+    sim.addVirtualSlave(s1);
+
+    std::uint8_t wbuf[4] = {0xDE, 0xAD, 0xBE, 0xEF};
+    EXPECT_TRUE(sim.writeToSlave(1, /*reg*/0x0010, wbuf, sizeof(wbuf)));
+
+    std::uint8_t rbuf[4] = {0};
+    EXPECT_TRUE(sim.readFromSlave(1, /*reg*/0x0010, rbuf, sizeof(rbuf)));
+    EXPECT_EQ(0, std::memcmp(wbuf, rbuf, sizeof(wbuf)));
+}
