@@ -13,11 +13,13 @@ class EtherCATSimulatorRecipe(ConanFile):
         "with_kickcat": [True, False],
         "with_qt": [True, False],
         "with_fastdds": [True, False],
+        "with_ftxui": [True, False],
     }
     default_options = {
         "with_kickcat": False,
         "with_qt": False,
         "with_fastdds": False,
+        "with_ftxui": False,
     }
 
     def layout(self):
@@ -38,3 +40,5 @@ class EtherCATSimulatorRecipe(ConanFile):
             self.requires(os.environ.get("QT6_REF", "qt/6.5.3"))
         if bool(self.options.get_safe("with_fastdds")):
             self.requires(os.environ.get("FASTDDS_REF", "fast-dds/2.14.1"))
+        if bool(self.options.get_safe("with_ftxui")):
+            self.requires(os.environ.get("FTXUI_REF", "ftxui/5.0.0"))
