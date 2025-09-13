@@ -8,21 +8,27 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(BUILD_EXAMPLES "Build examples" ON)
 option(BUILD_GUI "Build GUI applications (Qt6 QML)" OFF)
+option(FORCE_NO_FTXUI "Ignore FTXUI even if found" OFF)
+option(FORCE_NO_FASTDDS "Ignore FastDDS even if found" OFF)
 
 include(CTest)
 enable_testing()
 
 # Optional dependencies via Conan
 find_package(fastdds CONFIG QUIET)
-if(fastdds_FOUND)
+if(fastdds_FOUND AND NOT FORCE_NO_FASTDDS)
     message(STATUS "FastDDS found via Conan")
     set(HAVE_FASTDDS ON)
+elseif(fastdds_FOUND AND FORCE_NO_FASTDDS)
+    message(STATUS "FastDDS found but disabled by FORCE_NO_FASTDDS")
 endif()
 
 find_package(ftxui CONFIG QUIET)
-if(ftxui_FOUND)
+if(ftxui_FOUND AND NOT FORCE_NO_FTXUI)
     message(STATUS "FTXUI found via Conan")
     set(HAVE_FTXUI ON)
+elseif(ftxui_FOUND AND FORCE_NO_FTXUI)
+    message(STATUS "FTXUI found but disabled by FORCE_NO_FTXUI")
 endif()
 
 # KickCAT is required by default (via Conan or vendored fallback)
