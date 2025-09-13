@@ -50,10 +50,20 @@ int32_t SimSocket::write(uint8_t const* frame, int32_t frame_size)
                 ack = static_cast<uint16_t>(sim_->onlineSlaveCount());
                 break;
             case ::kickcat::Command::BWR:
-            case ::kickcat::Command::BRW:
-                // Broadcast write: acknowledge all online
-                ack = static_cast<uint16_t>(sim_->onlineSlaveCount());
+            case ::kickcat::Command::BRW: {
+                // Broadcast write: apply to all online slaves at given ADO
+                auto [pos, ado] = ::kickcat::extractAddress(hdr->address);
+                (void)pos;
+                uint16_t okc = 0;
+                std::size_t online = sim_->onlineSlaveCount();
+                for (std::size_t i = 1; i <= online; ++i) {
+                    if (sim_->writeToSlave(static_cast<uint16_t>(i), ado, data, hdr->len)) {
+                        ++okc;
+                    }
+                }
+                ack = okc;
                 break;
+            }
             case ::kickcat::Command::FPRD:
             case ::kickcat::Command::FPWR:
             case ::kickcat::Command::FPRW: {
