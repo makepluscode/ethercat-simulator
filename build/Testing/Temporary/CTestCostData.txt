@@ -1,5 +1,0 @@
-examples.hello_run 6 0.000328418
-NetworkSimulator.Loopback_WhenLinkUp_SendsAndReceives 4 0.000447084
-NetworkSimulator.SendReceive_WhenLinkDown_Fails 4 0.000483451
-examples.kickcat_scan_run 3 0.000622702
----

@@ -1,2 +1,0 @@
-/usr/bin/ar qc libethercat_core.a CMakeFiles/ethercat_core.dir/simulation/network_simulator.cpp.o
-/usr/bin/ranlib libethercat_core.a

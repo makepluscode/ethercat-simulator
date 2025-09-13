@@ -1,2 +1,0 @@
-/usr/bin/ar qc libethercat_kickcat_adapter.a CMakeFiles/ethercat_kickcat_adapter.dir/kickcat/sim_socket.cpp.o
-/usr/bin/ranlib libethercat_kickcat_adapter.a

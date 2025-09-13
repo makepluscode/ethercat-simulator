@@ -1,5 +1,0 @@
-if(EXISTS "/home/makepluscode/EtherCATSimulator/build/tests/test_network_simulator[1]_tests.cmake")
-  include("/home/makepluscode/EtherCATSimulator/build/tests/test_network_simulator[1]_tests.cmake")
-else()
-  add_test(test_network_simulator_NOT_BUILT test_network_simulator_NOT_BUILT)
-endif()
