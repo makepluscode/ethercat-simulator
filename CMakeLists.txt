@@ -11,12 +11,9 @@ option(BUILD_EXAMPLES "Build examples" ON)
 include(CTest)
 enable_testing()
 
-# Try to locate KickCAT from Conan CMakeDeps (optional)
-find_package(kickcat CONFIG QUIET)
-if(kickcat_FOUND)
-    message(STATUS "KickCAT found via Conan")
-    set(HAVE_KICKCAT ON)
-else()
+# KickCAT is required by default (via Conan or vendored fallback)
+find_package(kickcat CONFIG)
+if(NOT kickcat_FOUND)
     # Fallback to vendored local copy at libs/kickcat
     set(_KICKCAT_LIB "${CMAKE_SOURCE_DIR}/libs/kickcat/lib/libkickcat.a")
     set(_KICKCAT_INC "${CMAKE_SOURCE_DIR}/libs/kickcat/include")
@@ -27,17 +24,21 @@ else()
             INTERFACE_INCLUDE_DIRECTORIES "${_KICKCAT_INC}"
         )
         message(STATUS "KickCAT found in libs/kickcat (vendored)")
-        set(HAVE_KICKCAT ON)
+        set(kickcat_FOUND ON)
     endif()
 endif()
+
+if(NOT kickcat_FOUND)
+    message(FATAL_ERROR "KickCAT not found. Install via Conan or sync to libs/kickcat.")
+endif()
+
+set(HAVE_KICKCAT ON)
 
 add_subdirectory(core)
 
 if(BUILD_EXAMPLES)
     add_subdirectory(examples/hello)
-    if(HAVE_KICKCAT)
-        add_subdirectory(examples/kickcat_scan)
-    endif()
+    add_subdirectory(examples/kickcat_scan)
 endif()
 
 if(BUILD_TESTING)
