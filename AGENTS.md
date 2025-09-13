@@ -1,51 +1,48 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- Root build: `CMakeLists.txt`, `conanfile.py`.
+- Root build files: `CMakeLists.txt`, `conanfile.py`.
 - Core library (planned): `include/`, `core/`, `lib/`.
 - Simulation: `core/simulation/` (network simulator, virtual slaves).
 - Communication (FastDDS): `include/communication/`, `core/communication/`.
 - GUI apps: `gui/desktop/` (Qt), `gui/web/` (HTML/JS/CSS).
-- Examples/integration: `examples/`, `cmake_example/`.
-- Docs: `PRD.md`. Tests: `tests/` (via CTest when added).
+- Examples/integration: `examples/`, `cmake_example/`. Binaries in `build/examples/`.
+- Docs/tests: `PRD.md`, `tests/` (CTest + GoogleTest).
 
 ## Build, Test, and Development Commands
-- Configure (Release): `cmake -S . -B build -DCMAKE_BUILD_TYPE=Release`.
-- Build: `cmake --build build -j`.
-- Run tests: `ctest --test-dir build --output-on-failure`.
+- Configure (Release): `cmake -S . -B build -DCMAKE_BUILD_TYPE=Release`
+- Build: `cmake --build build -j`
+- Run tests: `ctest --test-dir build --output-on-failure`
 - With Conan deps:
   - `conan profile detect`
   - `conan install . -of build -s build_type=Release --build=missing`
   - `cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/conan_toolchain.cmake`
   - `cmake --build build -j && ctest --test-dir build`
-- Examples output: `build/examples/` (run binaries directly on Linux/WSL).
+- Run examples (Linux/WSL): execute binaries in `build/examples/`.
 
 ## Coding Style & Naming Conventions
-- Language: C++17+. Indentation: 4 spaces; LF newlines; UTF‑8.
-- Files: lower_snake_case (e.g., `network_interface.h`, `master.cpp`).
-- Namespaces: lower_snake_case (e.g., `kickcat::communication`).
-- Types: PascalCase; methods: camelCase; constants/macros: UPPER_SNAKE_CASE.
-- Prefer RAII and smart pointers; avoid raw `new/delete`; use `noexcept` when sensible.
-- Formatting: `clang-format` (LLVM style, 100 columns). If `.clang-format` exists, follow it.
+- C++17+, 4-space indent, LF newlines, UTF‑8.
+- Files/namespaces: lower_snake_case. Types: PascalCase. Methods: camelCase. Constants/macros: UPPER_SNAKE_CASE.
+- Namespaces: root `ethercat_sim`; modules `simulation`, `communication`, `kickcat` (adapter). Legacy alias `ethercat_sim::kickcat_adapter` is provided but deprecated. Always qualify from root (e.g., `ethercat_sim::kickcat::SimSocket`) to avoid collision with external `::kickcat`.
+- Avoid `using namespace` at file scope. Prefer explicit qualification or narrow `using` declarations for single symbols in local scopes (tests/examples only).
+- Prefer RAII and smart pointers; avoid raw `new/delete`; use `noexcept` where sensible.
+- Formatting: `clang-format` (LLVM, 100 cols). If `.clang-format` exists, run `clang-format -i <files>`.
 
 ## Testing Guidelines
-- Framework: GoogleTest via CTest. Place tests under `tests/<area>/test_*.cpp`.
+- Framework: GoogleTest via CTest.
+- Location: `tests/<area>/test_*.cpp`.
 - Naming: `SuiteName.MethodName_State_ExpectedBehavior`.
-- Coverage goal: ≥80% for core logic and simulation.
-- Run tests: `ctest --test-dir build --output-on-failure`.
+- Coverage goal: ≥80% for core logic/simulation.
+- Run: `ctest --test-dir build --output-on-failure`.
 
 ## Commit & Pull Request Guidelines
-- Commits: concise, imperative. Format: `type(scope): summary` (e.g., `feat(core): add cyclic operation thread`). Reference issues with `#123`.
-- Group related changes; avoid mixed concerns.
-- PRs: include summary, motivation, linked issues, build/test results, and screenshots/logs where relevant (GUI/simulation). Keep diffs focused.
+- Commits: concise, imperative; `type(scope): summary` (e.g., `feat(core): add cyclic operation thread`). Reference issues `#123`.
+- PRs: include summary, motivation, linked issues, build/test results, and screenshots/logs for GUI/simulation. Keep diffs focused.
 
 ## Security & Configuration Tips
-- Target: Linux/WSL. Simulator needs no root; real NIC access may require capabilities.
-- Real‑time tuning optional; document any required `sysctl`/limits for timing‑sensitive work.
+- Target Linux/WSL. Simulator needs no root; real NIC access may require capabilities.
+- Real‑time tuning is optional; document any required `sysctl`/limits.
 - Do not commit secrets; prefer env vars/local config.
 
 ## Agent‑Specific Notes
-- Follow this guide for any file you modify. Keep changes minimal and aligned with `PRD.md` and the layout above.
-- Respect directory scope if additional `AGENTS.md` files appear; deeper files take precedence.
-- Validate locally with CMake/CTest before opening PRs.
-
+- Follow this guide for any changes. Respect directory scope if nested AGENTS.md files appear. Validate locally with CMake/CTest before proposing PRs.
