@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(BUILD_EXAMPLES "Build examples" ON)
+option(BUILD_GUI "Build GUI applications (Qt6 QML)" OFF)
 
 include(CTest)
 enable_testing()
@@ -44,4 +45,8 @@ endif()
 
 if(BUILD_TESTING)
     add_subdirectory(tests)
+endif()
+
+if(BUILD_GUI)
+    add_subdirectory(gui/desktop)
 endif()
