@@ -56,8 +56,8 @@ int32_t SimSocket::write(uint8_t const* frame, int32_t frame_size)
                 (void)pos;
                 uint16_t okc = 0;
                 std::size_t online = sim_->onlineSlaveCount();
-                for (std::size_t i = 1; i <= online; ++i) {
-                    if (sim_->writeToSlave(static_cast<uint16_t>(i), ado, data, hdr->len)) {
+                for (std::size_t idx = 0; idx < online; ++idx) {
+                    if (sim_->writeToSlaveByIndex(idx, ado, data, hdr->len)) {
                         ++okc;
                     }
                 }

@@ -49,6 +49,19 @@ if(HAVE_KICKCAT)
             GTest::gtest_main
     )
     gtest_discover_tests(test_kickcat_bus_minimal)
+
+    add_executable(test_kickcat_bus_init
+        kickcat/test_bus_init.cpp
+    )
+    target_link_libraries(test_kickcat_bus_init
+        PRIVATE
+            ethercat_core
+            ethercat_kickcat_adapter
+            kickcat::kickcat
+            GTest::gtest
+            GTest::gtest_main
+    )
+    gtest_discover_tests(test_kickcat_bus_init)
     add_executable(test_kickcat_sdo
         kickcat/test_sdo.cpp
     )
