@@ -65,10 +65,12 @@ TEST(NetworkSimulator, RegisterReadWrite_ByStationAddress)
     auto s1 = std::make_shared<VirtualSlave>(1, 0x9A, 0x1111, "S1");
     sim.addVirtualSlave(s1);
 
+    // Use a non-identity register to avoid changing station address
+    constexpr std::uint16_t kReg = 0x0100; // ESC_DL_FWRD (arbitrary for R/W test)
     std::uint8_t wbuf[4] = {0xDE, 0xAD, 0xBE, 0xEF};
-    EXPECT_TRUE(sim.writeToSlave(1, /*reg*/0x0010, wbuf, sizeof(wbuf)));
+    EXPECT_TRUE(sim.writeToSlave(1, kReg, wbuf, sizeof(wbuf)));
 
     std::uint8_t rbuf[4] = {0};
-    EXPECT_TRUE(sim.readFromSlave(1, /*reg*/0x0010, rbuf, sizeof(rbuf)));
+    EXPECT_TRUE(sim.readFromSlave(1, kReg, rbuf, sizeof(rbuf)));
     EXPECT_EQ(0, std::memcmp(wbuf, rbuf, sizeof(wbuf)));
 }

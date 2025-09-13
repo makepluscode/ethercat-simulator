@@ -29,10 +29,9 @@ TEST(KickcatAdapter, ReadWrite_StationAddress)
     ::kickcat::sendGetRegister(*link, /*slave*/1, ::kickcat::reg::STATION_ADDR, station);
     EXPECT_EQ(station, 1u);
 
-    // Write a new station address and read it back
+    // Write a new station address and read it back at the new address
     ::kickcat::sendWriteRegister<uint16_t>(*link, /*slave*/1, ::kickcat::reg::STATION_ADDR, 2u);
     station = 0;
-    ::kickcat::sendGetRegister(*link, /*slave*/1, ::kickcat::reg::STATION_ADDR, station);
+    ::kickcat::sendGetRegister(*link, /*slave*/2, ::kickcat::reg::STATION_ADDR, station);
     EXPECT_EQ(station, 2u);
 }
-

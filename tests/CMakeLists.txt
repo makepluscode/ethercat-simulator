@@ -14,6 +14,17 @@ target_link_libraries(test_network_simulator
 include(GoogleTest)
 gtest_discover_tests(test_network_simulator)
 
+add_executable(test_slave_registers
+    simulation/test_slave_registers.cpp
+)
+target_link_libraries(test_slave_registers
+    PRIVATE
+        ethercat_core
+        GTest::gtest
+        GTest::gtest_main
+)
+gtest_discover_tests(test_slave_registers)
+
 if(HAVE_KICKCAT)
     add_executable(test_kickcat_adapter
         kickcat/test_kickcat_adapter.cpp
