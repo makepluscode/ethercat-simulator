@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- Root build: `CMakeLists.txt`, `conanfile.py` (Conan packaging).
+- Root build: `CMakeLists.txt`, `conanfile.py`.
 - Core library (planned): `include/`, `core/`, `lib/`.
 - Simulation: `core/simulation/` (network simulator, virtual slaves).
 - Communication (FastDDS): `include/communication/`, `core/communication/`.
@@ -25,14 +25,14 @@
 - Files: lower_snake_case (e.g., `network_interface.h`, `master.cpp`).
 - Namespaces: lower_snake_case (e.g., `kickcat::communication`).
 - Types: PascalCase; methods: camelCase; constants/macros: UPPER_SNAKE_CASE.
-- Prefer RAII, smart pointers; avoid raw `new/delete`; use `noexcept` when sensible.
+- Prefer RAII and smart pointers; avoid raw `new/delete`; use `noexcept` when sensible.
 - Formatting: `clang-format` (LLVM style, 100 columns). If `.clang-format` exists, follow it.
 
 ## Testing Guidelines
 - Framework: GoogleTest via CTest. Place tests under `tests/<area>/test_*.cpp`.
 - Naming: `SuiteName.MethodName_State_ExpectedBehavior`.
-- Coverage goal: ≥80% for core logic and simulation; add tests with new features.
-- Run: `ctest --test-dir build`. Register with `add_test` in CMake.
+- Coverage goal: ≥80% for core logic and simulation.
+- Run tests: `ctest --test-dir build --output-on-failure`.
 
 ## Commit & Pull Request Guidelines
 - Commits: concise, imperative. Format: `type(scope): summary` (e.g., `feat(core): add cyclic operation thread`). Reference issues with `#123`.
@@ -41,7 +41,11 @@
 
 ## Security & Configuration Tips
 - Target: Linux/WSL. Simulator needs no root; real NIC access may require capabilities.
-- Real‑time tuning optional for dev; document any required `sysctl`/limits for timing-sensitive work.
+- Real‑time tuning optional; document any required `sysctl`/limits for timing‑sensitive work.
+- Do not commit secrets; prefer env vars/local config.
 
 ## Agent‑Specific Notes
-- Follow this guide for any file you modify. Keep changes minimal, scoped, and aligned with `PRD.md` and the directory layout above.
+- Follow this guide for any file you modify. Keep changes minimal and aligned with `PRD.md` and the layout above.
+- Respect directory scope if additional `AGENTS.md` files appear; deeper files take precedence.
+- Validate locally with CMake/CTest before opening PRs.
+
