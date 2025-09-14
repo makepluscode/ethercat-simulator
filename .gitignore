@@ -31,9 +31,24 @@ conan.lock
 
 # Tooling
 compile_commands.json
+.cache/
+.pytest_cache/
+.clangd/
+.clang-tidy
 .vscode/
 .idea/
 *.code-workspace
+
+# User-local CMake presets
+CMakeUserPresets.json
+
+# Coverage outputs
+coverage/
+*.gcda
+*.gcno
+*.profraw
+*.profdata
+lcov.info
 
 # OS files
 .DS_Store
