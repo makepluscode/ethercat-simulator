@@ -1,8 +1,8 @@
 #pragma once
 
 #include <string>
+#include <functional>
 
-#ifdef ETHERCAT_HAVE_FASTDDS
 #include <fastdds/dds/topic/TypeSupport.hpp>
 #include <fastdds/dds/topic/TopicDataType.hpp>
 #include <fastdds/rtps/common/SerializedPayload.h>
@@ -25,5 +25,3 @@ public:
 };
 
 } // namespace ethercat_sim::communication
-#endif // ETHERCAT_HAVE_FASTDDS
-

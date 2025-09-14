@@ -1,6 +1,5 @@
 #include "ethercat_sim/communication/dds_text.h"
 
-#ifdef ETHERCAT_HAVE_FASTDDS
 #include <fastdds/dds/domain/DomainParticipantFactory.hpp>
 #include <fastdds/dds/domain/DomainParticipant.hpp>
 #include <fastdds/dds/publisher/Publisher.hpp>
@@ -33,6 +32,3 @@ int main()
     eprosima::fastdds::dds::DomainParticipantFactory::get_instance()->delete_participant(participant);
     return 0;
 }
-#else
-int main(){return 0;}
-#endif

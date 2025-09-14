@@ -1,7 +1,6 @@
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/screen/screen.hpp>
 #include <iostream>
-#ifdef ETHERCAT_HAVE_FASTDDS
 #include "ethercat_sim/communication/dds_text.h"
 #include <fastdds/dds/domain/DomainParticipantFactory.hpp>
 #include <fastdds/dds/subscriber/Subscriber.hpp>
@@ -13,7 +12,6 @@
 using namespace eprosima::fastdds::dds;
 using ethercat_sim::communication::TextMsg;
 using ethercat_sim::communication::TextMsgPubSubType;
-#endif
 
 int main()
 {
@@ -24,7 +22,6 @@ int main()
         text("Hello from TUI (FTXUI)!")
     }) | border;
 
-#ifdef ETHERCAT_HAVE_FASTDDS
     std::atomic<bool> got{false};
     std::string last;
 
@@ -63,7 +60,6 @@ int main()
             text(last) | color(Color::Yellow)
         }) | border;
     }
-#endif
 
     auto screen = Screen::Create(Dimension::Fit(doc));
     Render(screen, doc);

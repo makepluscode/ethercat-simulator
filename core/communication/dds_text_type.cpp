@@ -1,6 +1,5 @@
 #include "ethercat_sim/communication/dds_text.h"
 
-#ifdef ETHERCAT_HAVE_FASTDDS
 using eprosima::fastdds::dds::TopicDataType;
 using eprosima::fastrtps::rtps::SerializedPayload_t;
 
@@ -45,5 +44,3 @@ std::function<uint32_t()> TextMsgPubSubType::getSerializedSizeProvider(void* dat
 }
 
 } // namespace ethercat_sim::communication
-#endif
-

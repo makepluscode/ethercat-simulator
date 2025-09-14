@@ -5,7 +5,7 @@ set -euo pipefail
 set -euo pipefail
 
 # Build and run ONLY the TUI app in tui/src/main.cpp.
-# Avoids building tests/examples to keep it fast and clean.
+# FastDDS 통신은 기본 활성화입니다.
 #
 # Usage:
 #   bash ./tui.sh [--debug|--release] [--fresh] [--dds|--no-dds] [--run-pub]
@@ -15,7 +15,7 @@ set -euo pipefail
 BUILD_DIR=${BUILD_DIR:-build/tui}
 BUILD_TYPE=${BUILD_TYPE:-Release}
 JOBS=${JOBS:-$(command -v nproc >/dev/null 2>&1 && nproc || echo 4)}
-DDS=0
+DDS=1
 RUN_PUB=0
 FRESH=0
 KICKCAT_REF_DEFAULT=${KICKCAT_REF_DEFAULT:-kickcat/v2.0-rc1}
@@ -41,7 +41,7 @@ Options:
   --release | --debug           Build type (default: Release)
   --build-type <type>           Explicit CMAKE_BUILD_TYPE
   -j, --jobs <N>                Parallel build jobs (default: auto)
-  --dds | --no-dds              Enable/disable FastDDS subscriber in TUI (default: disabled)
+  --dds | --no-dds              Enable/disable FastDDS subscriber in TUI (default: enabled)
   --run-pub | --pub             Also build+run examples/simul (publisher) in background
   --fresh                       Remove build directory before configuring
   --kickcat-ref <ref>           Conan reference for KickCAT (default: ${KICKCAT_REF_DEFAULT})
@@ -66,10 +66,8 @@ if command -v conan >/dev/null 2>&1; then
   CONAN_OPTS=(
     -o ethercat-simulator*:with_kickcat=True
     -o ethercat-simulator*:with_ftxui=True
+    -o ethercat-simulator*:with_fastdds=True
   )
-  if [[ $DDS -eq 1 || $RUN_PUB -eq 1 ]]; then
-    CONAN_OPTS+=( -o ethercat-simulator*:with_fastdds=True )
-  fi
   if [[ -z "${KICKCAT_REF:-}" ]]; then
     export KICKCAT_REF="$KICKCAT_REF_DEFAULT"
   fi
@@ -88,7 +86,6 @@ CMAKE_ARGS=(
   -DBUILD_GUI=OFF
   -DENABLE_COVERAGE=OFF
   -DFORCE_NO_FTXUI=OFF
-  -DFORCE_NO_FASTDDS=$([[ $DDS -eq 1 || $RUN_PUB -eq 1 ]] && echo OFF || echo ON)
 )
 if [[ -f "$BUILD_DIR/conan_toolchain.cmake" ]]; then
   CMAKE_ARGS+=( -DCMAKE_TOOLCHAIN_FILE="$BUILD_DIR/conan_toolchain.cmake" )
@@ -102,12 +99,12 @@ cmake "${CMAKE_ARGS[@]}"
 echo "[tui.sh] Building TUI target..."
 cmake --build "$BUILD_DIR" -j "$JOBS" --target tui
 
-# Optionally build publisher example
+# Optionally build publisher example (fastdds_sim_pub)
 PUB_BIN=""
 if [[ $RUN_PUB -eq 1 ]]; then
-  echo "[tui.sh] Building DDS publisher (examples/simul)..."
-  cmake --build "$BUILD_DIR" -j "$JOBS" --target simul || true
-  PUB_CAN="${BUILD_DIR}/examples/simul/simul"
+  echo "[tui.sh] Building DDS publisher (examples/fastdds_sim_pub)..."
+  cmake --build "$BUILD_DIR" -j "$JOBS" --target fastdds_sim_pub || true
+  PUB_CAN="${BUILD_DIR}/examples/fastdds_sim_pub/fastdds_sim_pub"
   if [[ -x "$PUB_CAN" ]]; then
     PUB_BIN="$PUB_CAN"
   fi
