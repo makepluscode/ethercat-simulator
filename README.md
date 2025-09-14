@@ -35,6 +35,7 @@ ctest --test-dir build --output-on-failure
 # 1) Detect profile and install deps
 conan profile detect
 export KICKCAT_REF=kickcat/v2.0-rc1  # optional: select KickCAT version
+export FASTDDS_REF=fast-dds/3.2.1          # recommended FastDDS version
 conan install . -of build -s build_type=Release \
   -o ethercat-simulator*:with_kickcat=True \
   -o ethercat-simulator*:with_fastdds=True \
@@ -51,7 +52,7 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
 Notes
-- FastDDS is required by default. Ensure `with_fastdds=True` is set on Conan install.
+- FastDDS is required by default. Ensure `with_fastdds=True` is set on Conan install (e.g., `FASTDDS_REF=fast-dds/3.2.1`).
 - `-DCMAKE_PREFIX_PATH=$PWD/build` lets CMake find `GTest`/`kickcat`/`fastdds` configs (Conan CMakeDeps).
 
 ### KickCAT Vendored Fallback (libs/kickcat)

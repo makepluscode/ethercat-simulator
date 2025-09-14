@@ -39,6 +39,7 @@ class EtherCATSimulatorRecipe(ConanFile):
             # Pin a safe default if available in your profiles
             self.requires(os.environ.get("QT6_REF", "qt/6.5.3"))
         if bool(self.options.get_safe("with_fastdds")):
-            self.requires(os.environ.get("FASTDDS_REF", "fast-dds/2.14.1"))
+            # Prefer environment override; default to a recent Fast DDS
+            self.requires(os.environ.get("FASTDDS_REF", "fast-dds/3.2.1"))
         if bool(self.options.get_safe("with_ftxui")):
             self.requires(os.environ.get("FTXUI_REF", "ftxui/5.0.0"))
