@@ -7,6 +7,7 @@
 #include <fastdds/dds/subscriber/DataReader.hpp>
 #include <fastdds/dds/subscriber/SampleInfo.hpp>
 #include <fastdds/dds/topic/Topic.hpp>
+#include <fastdds/rtps/transport/shared_mem/SharedMemTransportDescriptor.h>
 #include <thread>
 #include <atomic>
 using namespace eprosima::fastdds::dds;
@@ -26,7 +27,11 @@ int main()
     std::string last;
 
     TypeSupport type(new TextMsgPubSubType());
-    DomainParticipant* participant = DomainParticipantFactory::get_instance()->create_participant(0, PARTICIPANT_QOS_DEFAULT);
+    // SHM-only transport to avoid UDP/multicast dependency
+    DomainParticipantQos qos = PARTICIPANT_QOS_DEFAULT;
+    qos.transport().use_builtin_transports = false;
+    qos.transport().user_transports.push_back(std::make_shared<eprosima::fastdds::rtps::SharedMemTransportDescriptor>());
+    DomainParticipant* participant = DomainParticipantFactory::get_instance()->create_participant(0, qos);
     if (participant)
     {
         type.register_type(participant);

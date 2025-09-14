@@ -5,6 +5,7 @@
 #include <fastdds/dds/publisher/Publisher.hpp>
 #include <fastdds/dds/publisher/DataWriter.hpp>
 #include <fastdds/dds/topic/Topic.hpp>
+#include <fastdds/rtps/transport/shared_mem/SharedMemTransportDescriptor.h>
 #include <iostream>
 
 using ethercat_sim::communication::TextMsg;
@@ -13,7 +14,12 @@ using ethercat_sim::communication::TextMsgPubSubType;
 int main()
 {
     eprosima::fastdds::dds::TypeSupport type(new TextMsgPubSubType());
-    auto* participant = eprosima::fastdds::dds::DomainParticipantFactory::get_instance()->create_participant(0, eprosima::fastdds::dds::PARTICIPANT_QOS_DEFAULT);
+    // SHM-only transport (no UDP) for sandbox friendliness
+    auto* factory = eprosima::fastdds::dds::DomainParticipantFactory::get_instance();
+    eprosima::fastdds::dds::DomainParticipantQos qos = eprosima::fastdds::dds::PARTICIPANT_QOS_DEFAULT;
+    qos.transport().use_builtin_transports = false;
+    qos.transport().user_transports.push_back(std::make_shared<eprosima::fastdds::rtps::SharedMemTransportDescriptor>());
+    auto* participant = factory->create_participant(0, qos);
     if (!participant) { std::cerr << "participant create failed" << std::endl; return 1; }
     type.register_type(participant);
 

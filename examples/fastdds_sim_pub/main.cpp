@@ -4,6 +4,7 @@
 #include <fastdds/dds/publisher/Publisher.hpp>
 #include <fastdds/dds/publisher/DataWriter.hpp>
 #include <fastdds/dds/topic/Topic.hpp>
+#include <fastdds/rtps/transport/shared_mem/SharedMemTransportDescriptor.h>
 #include <chrono>
 #include <iostream>
 #include <thread>
@@ -17,7 +18,11 @@ int main(int argc, char** argv)
 
     eprosima::fastdds::dds::TypeSupport type(new TextMsgPubSubType());
     auto* factory = eprosima::fastdds::dds::DomainParticipantFactory::get_instance();
-    auto* participant = factory->create_participant(0, eprosima::fastdds::dds::PARTICIPANT_QOS_DEFAULT);
+    // Use SHM-only transport to work in restricted/no-network envs
+    eprosima::fastdds::dds::DomainParticipantQos qos = eprosima::fastdds::dds::PARTICIPANT_QOS_DEFAULT;
+    qos.transport().use_builtin_transports = false;
+    qos.transport().user_transports.push_back(std::make_shared<eprosima::fastdds::rtps::SharedMemTransportDescriptor>());
+    auto* participant = factory->create_participant(0, qos);
     if (!participant) { std::cerr << "participant create failed" << std::endl; return 1; }
     type.register_type(participant);
 
