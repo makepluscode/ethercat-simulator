@@ -10,12 +10,11 @@
 - Docs/tests: `PRD.md`, `tests/` (CTest + GoogleTest).
 
 ## Build, Test, and Development Commands
-- Use `build.sh` only; Conan toolchain is default.
-- Build (Release): `./build.sh` (or `bash build.sh`).
-- Debug: `./build.sh --debug`.
-- Clean: `./build.sh --clean`.
-- Run tests: `./test.sh`.
-- Run examples (Linux/WSL): after build, execute binaries in `build/examples/`.
+- Use `build.sh` only; Conan toolchain is default and pins deps.
+- Build (Release): `./build.sh` (or `bash build.sh`). Debug: `./build.sh --debug`. Clean: `./build.sh --clean`.
+- Tests: `./test.sh` (includes TUI smoke test via `TUI_SMOKE_TEST=1`).
+- Examples (Linux/WSL): run binaries under `build/examples/`.
+- Reproducibility: versions are pinned in `conanfile.py` and `conan.lock`. Do not bump without updating code and tests.
 
 ## Coding Style & Naming Conventions
 - C++17+, 4-space indent, LF newlines, UTF‑8.
@@ -31,6 +30,7 @@
 - Naming: `SuiteName.MethodName_State_ExpectedBehavior`.
 - Coverage goal: ≥80% for core logic/simulation.
 - Run: `ctest --test-dir build --output-on-failure`.
+- TUI runtime: interactive app runs until ESC/Ctrl+C/Ctrl+Z; CI runs smoke mode only.
 
 ## Commit & Pull Request Guidelines
 - Commits: concise, imperative; `type(scope): summary` (e.g., `feat(core): add cyclic operation thread`). Reference issues like `#123`.
@@ -40,6 +40,11 @@
 - Target Linux/WSL. Simulator needs no root; real NIC access may require capabilities.
 - Real‑time tuning is optional; document any required `sysctl`/limits.
 - Do not commit secrets; prefer env vars/local config.
+
+## Dependency & DDS Notes
+- Fast DDS API: code targets Fast DDS 3.x (`fast-dds/3.2.1`). Headers use `.hpp` and new `TopicDataType` API.
+- Conan is required; system packages are not supported. `build.sh` writes CMake user presets into `build/` to avoid repo churn.
+- If you need to update DDS/FTXUI, coordinate a controlled bump (modify `conanfile.py`, refresh `conan.lock`, update code, run tests).
 
 ## Agent‑Specific Instructions
 - Follow this guide for all changes. If nested `AGENTS.md` files exist, deeper scopes take precedence.

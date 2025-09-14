@@ -27,7 +27,6 @@ Testing/
 # Conan
 /.conan/
 /.conan2/
-conan.lock
 
 # Tooling
 compile_commands.json

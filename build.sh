@@ -42,7 +42,13 @@ if [[ ${USE_CONAN} -eq 1 ]]; then
   echo "[conan] Detecting profile"
   conan profile detect || true
   echo "[conan] Installing dependencies for ${BUILD_TYPE}"
-  conan install . -of "${BUILD_DIR}" -s "build_type=${BUILD_TYPE}" --build=missing
+  # Enable required options so CMake can find FastDDS and FTXUI
+  conan install . \
+    -o ethercat-simulator*:with_fastdds=True \
+    -o ethercat-simulator*:with_ftxui=True \
+    -c tools.cmake.cmaketoolchain:user_presets_path=${BUILD_DIR} \
+    -c tools.cmake.cmaketoolchain:generator="Unix Makefiles" \
+    -of "${BUILD_DIR}" -s "build_type=${BUILD_TYPE}" --build=missing
   cmake_common_flags+=("-DCMAKE_TOOLCHAIN_FILE=${BUILD_DIR}/conan_toolchain.cmake")
 fi
 

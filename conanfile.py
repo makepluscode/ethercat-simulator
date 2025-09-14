@@ -27,19 +27,16 @@ class EtherCATSimulatorRecipe(ConanFile):
         pass
 
     def requirements(self):
+        # Pin exact versions for reproducible builds. Bump only with code updates.
         if bool(self.options.get_safe("with_kickcat")):
             ref = os.environ.get("KICKCAT_REF")
             if ref:
                 self.requires(ref)
             else:
-                self.output.warning(
-                    "with_kickcat=True but KICKCAT_REF not set; skipping KickCAT requirement"
-                )
+                self.output.warning("with_kickcat=True but KICKCAT_REF not set; skipping KickCAT requirement")
         if bool(self.options.get_safe("with_qt")):
-            # Pin a safe default if available in your profiles
-            self.requires(os.environ.get("QT6_REF", "qt/6.5.3"))
+            self.requires("qt/6.5.3")
         if bool(self.options.get_safe("with_fastdds")):
-            # Prefer environment override; default to a recent Fast DDS
-            self.requires(os.environ.get("FASTDDS_REF", "fast-dds/3.2.1"))
+            self.requires("fast-dds/3.2.1")
         if bool(self.options.get_safe("with_ftxui")):
-            self.requires(os.environ.get("FTXUI_REF", "ftxui/5.0.0"))
+            self.requires("ftxui/5.0.0")

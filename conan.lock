@@ -1,0 +1,18 @@
+{
+    "version": "0.5",
+    "requires": [
+        "tinyxml2/10.0.0#832c7f8038cef53f6427577d6e66a7a8%1704034733.705",
+        "gtest/1.14.0#f8f0757a574a8dd747d16af62d6eb1b7%1743410807.169",
+        "ftxui/5.0.0#99cc82efeb91a0d9d60edc45c1085471%1692497361.158",
+        "foonathan-memory/0.7.3#e15d6872869ad2a42dc4e8b95e624772%1683706559.15",
+        "fast-dds/3.2.1#860a3de645a7d350ff7b3f2f153b69a2%1755689467.332",
+        "fast-cdr/2.3.0#970c808d774d876b5e69896c7d3abcb2%1754581169.283",
+        "asio/1.29.0#52d17a857aa6f978d8c17d7c38eae5ad%1702236346.321"
+    ],
+    "build_requires": [
+        "cmake/4.1.1#23ee27eac0192593228fe8ced4680627%1756413041.241",
+        "cmake/3.31.8#dde3bde00bb843687e55aea5afa0e220%1751628300.59"
+    ],
+    "python_requires": [],
+    "config_requires": []
+}
