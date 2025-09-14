@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-#!/usr/bin/env bash
-set -euo pipefail
-
 # Build and run ONLY the TUI app in tui/src/main.cpp.
 # FastDDS 통신은 기본 활성화입니다.
 #
@@ -11,8 +8,8 @@ set -euo pipefail
 #   bash ./tui.sh [--debug|--release] [--fresh] [--dds|--no-dds] [--run-pub]
 #                  [--kickcat-ref <ref>] [-j N] [-- <tui-args>]
 
-# Dedicated build dir to avoid interfering with other builds/coverage artifacts
-BUILD_DIR=${BUILD_DIR:-build/tui}
+# Dedicated build dir to avoid interfering with the main build tree
+BUILD_DIR=${BUILD_DIR:-build/tui_app}
 BUILD_TYPE=${BUILD_TYPE:-Release}
 JOBS=${JOBS:-$(command -v nproc >/dev/null 2>&1 && nproc || echo 4)}
 DDS=1
@@ -97,6 +94,11 @@ echo "[tui.sh] Configuring CMake..."
 cmake "${CMAKE_ARGS[@]}"
 
 echo "[tui.sh] Building TUI target..."
+# Guard against an old directory conflicting with the output binary name
+if [[ -d "$BUILD_DIR/tui/tui" ]]; then
+  echo "[tui.sh] Removing stale directory that conflicts with TUI binary: $BUILD_DIR/tui/tui"
+  rm -rf "$BUILD_DIR/tui/tui"
+fi
 cmake --build "$BUILD_DIR" -j "$JOBS" --target tui
 
 # Optionally build publisher example (fastdds_sim_pub)
@@ -111,6 +113,12 @@ if [[ $RUN_PUB -eq 1 ]]; then
 fi
 
 BIN="${BUILD_DIR}/tui/tui"
+# If a directory happens to exist at BIN path, remove and rebuild
+if [[ -d "$BIN" ]]; then
+  echo "[tui.sh] Found directory at expected binary path. Cleaning and rebuilding..."
+  rm -rf "$BIN"
+  cmake --build "$BUILD_DIR" -j "$JOBS" --target tui
+fi
 if [[ ! -x "$BIN" ]]; then
   FOUND=$(find "$BUILD_DIR" -type f -executable -name tui 2>/dev/null | head -n1 || true)
   if [[ -n "$FOUND" ]]; then BIN="$FOUND"; fi

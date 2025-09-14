@@ -1,45 +1,60 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Simple build helper for this repo.
-# Usage:
-#   ./build.sh           -> configure + build (Release)
-#   ./build.sh test      -> configure + build + run tests
-#   ./build.sh tui       -> configure + build (TUI deps via Conan)
+# Standardized build entrypoint for this repository.
+# Examples:
+#   ./build.sh               # Release build (Conan by default)
+#   ./build.sh --debug       # Debug build
+#   ./build.sh --clean       # Clean build directory then build
 
-MODE=${1:-build}
-BUILD_DIR=${BUILD_DIR:-build}
-BUILD_TYPE=${BUILD_TYPE:-Release}
-JOBS=${JOBS:-$(command -v nproc >/dev/null 2>&1 && nproc || echo 4)}
+BUILD_DIR="build"
+BUILD_TYPE="Release"
+USE_CONAN=1
+CLEAN=0
 
-echo "[build.sh] mode=${MODE} type=${BUILD_TYPE} dir=${BUILD_DIR} jobs=${JOBS}"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --debug) BUILD_TYPE="Debug" ;;
+    --release) BUILD_TYPE="Release" ;;
+    --conan) USE_CONAN=1 ;;
+    --clean) CLEAN=1 ;;
+    -h|--help)
+      cat <<EOF
+Usage: $(basename "$0") [--debug|--release] [--clean]
+Defaults: --release with Conan toolchain.
+EOF
+      exit 0
+      ;;
+    *) echo "Unknown option: $1" >&2; exit 2 ;;
+  esac
+  shift
+done
 
-mkdir -p "${BUILD_DIR}"
-
-# If user asked for TUI and didn't set CONAN_OPTIONS, enable FTXUI by default
-if [[ "${MODE}" == "tui" ]]; then
-  CONAN_OPTIONS="-o with_ftxui=True ${CONAN_OPTIONS:-}"
+if [[ ${CLEAN} -eq 1 ]]; then
+  echo "[clean] Removing ${BUILD_DIR}"
+  rm -rf "${BUILD_DIR}"
 fi
 
-if command -v conan >/dev/null 2>&1; then
-  echo "[build.sh] Conan detected. Installing dependencies..."
+cmake_common_flags=("-DCMAKE_BUILD_TYPE=${BUILD_TYPE}")
+
+if [[ ${USE_CONAN} -eq 1 ]]; then
+  command -v conan >/dev/null 2>&1 || { echo "Conan is required for --conan"; exit 1; }
+  echo "[conan] Detecting profile"
   conan profile detect || true
-  conan install . -of "${BUILD_DIR}" -s build_type="${BUILD_TYPE}" --build=missing ${CONAN_OPTIONS:-} ${CONAN_CONF:-}
-  TOOLCHAIN="-DCMAKE_TOOLCHAIN_FILE=${BUILD_DIR}/conan_toolchain.cmake"
-else
-  echo "[build.sh] Conan not found. Proceeding without it."
-  TOOLCHAIN=""
+  echo "[conan] Installing dependencies for ${BUILD_TYPE}"
+  conan install . -of "${BUILD_DIR}" -s "build_type=${BUILD_TYPE}" --build=missing
+  cmake_common_flags+=("-DCMAKE_TOOLCHAIN_FILE=${BUILD_DIR}/conan_toolchain.cmake")
 fi
 
-echo "[build.sh] Configuring CMake..."
-cmake -S . -B "${BUILD_DIR}" -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" ${TOOLCHAIN} ${EXTRA_CMAKE_FLAGS:-}
+echo "[cmake] Configuring (${BUILD_TYPE})"
+cmake -S . -B "${BUILD_DIR}" "${cmake_common_flags[@]}"
 
-echo "[build.sh] Building..."
-cmake --build "${BUILD_DIR}" -j "${JOBS}"
-
-if [[ "${MODE}" == "test" ]]; then
-  echo "[build.sh] Running tests..."
-  ctest --test-dir "${BUILD_DIR}" --output-on-failure
+echo "[cmake] Building"
+# Guard against stale nested TUI build directory conflicting with binary name
+if [[ -d "${BUILD_DIR}/tui/tui" ]]; then
+  echo "[warn] Removing stale directory that conflicts with TUI binary: ${BUILD_DIR}/tui/tui"
+  rm -rf "${BUILD_DIR}/tui/tui"
 fi
+cmake --build "${BUILD_DIR}" -j
 
-echo "[build.sh] Done."
+echo "[done] Artifacts in ${BUILD_DIR} (examples in ${BUILD_DIR}/examples)"

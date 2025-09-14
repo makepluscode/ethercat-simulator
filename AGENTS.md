@@ -6,26 +6,23 @@
 - Simulation: `core/simulation/` (network simulator, virtual slaves).
 - Communication (FastDDS): `include/communication/`, `core/communication/`.
 - GUI apps: `gui/desktop/` (Qt), `gui/web/` (HTML/JS/CSS).
-- Examples/integration: `examples/`, `cmake_example/`. Binaries in `build/examples/`.
+- Examples/integration: `examples/`, `cmake_example/`; binaries in `build/examples/`.
 - Docs/tests: `PRD.md`, `tests/` (CTest + GoogleTest).
 
 ## Build, Test, and Development Commands
-- Configure (Release): `cmake -S . -B build -DCMAKE_BUILD_TYPE=Release`
-- Build: `cmake --build build -j`
-- Run tests: `ctest --test-dir build --output-on-failure`
-- With Conan deps:
-  - `conan profile detect`
-  - `conan install . -of build -s build_type=Release --build=missing`
-  - `cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/conan_toolchain.cmake`
-  - `cmake --build build -j && ctest --test-dir build`
-- Run examples (Linux/WSL): execute binaries in `build/examples/`.
+- Use `build.sh` only; Conan toolchain is default.
+- Build (Release): `./build.sh` (or `bash build.sh`).
+- Debug: `./build.sh --debug`.
+- Clean: `./build.sh --clean`.
+- Run tests: `./test.sh`.
+- Run examples (Linux/WSL): after build, execute binaries in `build/examples/`.
 
 ## Coding Style & Naming Conventions
 - C++17+, 4-space indent, LF newlines, UTF‑8.
-- Files/namespaces: lower_snake_case. Types: PascalCase. Methods: camelCase. Constants/macros: UPPER_SNAKE_CASE.
-- Namespaces: root `ethercat_sim`; modules `simulation`, `communication`, `kickcat` (adapter). Legacy alias `ethercat_sim::kickcat_adapter` is provided but deprecated. Always qualify from root (e.g., `ethercat_sim::kickcat::SimSocket`) to avoid collision with external `::kickcat`.
-- Avoid `using namespace` at file scope. Prefer explicit qualification or narrow `using` declarations for single symbols in local scopes (tests/examples only).
-- Prefer RAII and smart pointers; avoid raw `new/delete`; use `noexcept` where sensible.
+- Names: files/namespaces lower_snake_case; Types PascalCase; methods camelCase; constants/macros UPPER_SNAKE_CASE.
+- Namespaces: use `ethercat_sim` as root; modules `simulation`, `communication`, `kickcat`. Prefer `ethercat_sim::kickcat::...`; legacy `ethercat_sim::kickcat_adapter` is deprecated.
+- Avoid `using namespace` at file scope; use narrow `using` only in local scopes (tests/examples).
+- Prefer RAII/smart pointers; avoid raw `new/delete`; add `noexcept` where sensible.
 - Formatting: `clang-format` (LLVM, 100 cols). If `.clang-format` exists, run `clang-format -i <files>`.
 
 ## Testing Guidelines
@@ -36,13 +33,14 @@
 - Run: `ctest --test-dir build --output-on-failure`.
 
 ## Commit & Pull Request Guidelines
-- Commits: concise, imperative; `type(scope): summary` (e.g., `feat(core): add cyclic operation thread`). Reference issues `#123`.
-- PRs: include summary, motivation, linked issues, build/test results, and screenshots/logs for GUI/simulation. Keep diffs focused.
+- Commits: concise, imperative; `type(scope): summary` (e.g., `feat(core): add cyclic operation thread`). Reference issues like `#123`.
+- PRs: include summary, motivation, linked issues, build/test results, and relevant screenshots/logs (GUI/simulation). Keep diffs focused.
 
 ## Security & Configuration Tips
 - Target Linux/WSL. Simulator needs no root; real NIC access may require capabilities.
 - Real‑time tuning is optional; document any required `sysctl`/limits.
 - Do not commit secrets; prefer env vars/local config.
 
-## Agent‑Specific Notes
-- Follow this guide for any changes. Respect directory scope if nested AGENTS.md files appear. Validate locally with CMake/CTest before proposing PRs.
+## Agent‑Specific Instructions
+- Follow this guide for all changes. If nested `AGENTS.md` files exist, deeper scopes take precedence.
+- Validate locally via `build.sh` and `test.sh` before proposing PRs.
