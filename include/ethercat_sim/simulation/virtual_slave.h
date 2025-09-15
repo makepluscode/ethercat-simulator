@@ -145,7 +145,12 @@ public:
         return true;
     }
 
+protected:
+    // Allow derived classes (specific slaves) to answer SDO Upload values
+    virtual bool onSdoUpload(uint16_t /*index*/, uint8_t /*subindex*/, uint32_t& /*value*/) const noexcept { return false; }
+
 private:
+
     void syncCoreRegisters_() noexcept
     {
         // DL_STATUS (0x110): set basic communication flags when online
@@ -206,11 +211,18 @@ private:
         uint16_t req_index = sdo->index;
         uint8_t  req_sub   = sdo->subindex;
         uint32_t value = 0;
-        if (req_index == 0x1018 && req_sub == 1) { value = vendor_id_; }
-        else if (req_index == 0x1018 && req_sub == 2) { value = product_code_; }
-        else if (req_index == 0x1018 && req_sub == 3) { value = 0; }
-        else if (req_index == 0x1018 && req_sub == 4) { value = 0; }
-        else { value = 0; }
+        bool handled = false;
+        if (req_index == 0x1018 && req_sub == 1) { value = vendor_id_; handled = true; }
+        else if (req_index == 0x1018 && req_sub == 2) { value = product_code_; handled = true; }
+        else if (req_index == 0x1018 && req_sub == 3) { value = 0; handled = true; }
+        else if (req_index == 0x1018 && req_sub == 4) { value = 0; handled = true; }
+        else {
+            uint32_t v = 0;
+            if (onSdoUpload(req_index, req_sub, v)) {
+                value = v;
+                handled = true;
+            }
+        }
 
         // Compose response in mb_out_
         std::fill(mb_out_.begin(), mb_out_.end(), 0);

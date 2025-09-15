@@ -113,6 +113,18 @@ if(HAVE_KICKCAT)
     gtest_discover_tests(test_kickcat_apr_lr)
 endif()
 
+# EL1258 slave tests
+add_executable(test_el1258
+    simulation/test_el1258.cpp
+)
+target_link_libraries(test_el1258
+    PRIVATE
+        ethercat_core
+        GTest::gtest
+        GTest::gtest_main
+)
+gtest_discover_tests(test_el1258)
+
 # DDS pub/sub test (FastDDS + Shared Memory only)
 if(HAVE_FASTDDS)
     add_executable(test_dds_text_pubsub
