@@ -10,4 +10,4 @@ target_link_libraries(examples_kickcat_scan
 )
 
 add_test(NAME examples.kickcat_scan_run COMMAND examples_kickcat_scan)
-
+set_tests_properties(examples.kickcat_scan_run PROPERTIES LABELS "examples")
