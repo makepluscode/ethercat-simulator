@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <cstdint>
 #include <cstring>
+#include <thread>
 
 #include "ethercat_sim/simulation/network_simulator.h"
 #include "ethercat_sim/simulation/slaves/el1258.h"
@@ -215,4 +216,58 @@ TEST(EL1258, DefaultTxPdoMapping_Enables_SafeOp)
     uint8_t al_st[2] = {0};
     ASSERT_TRUE(sim.readFromSlave(1, ::kickcat::reg::AL_STATUS, al_st, sizeof(al_st)));
     EXPECT_EQ(al_st[0], static_cast<uint8_t>(::kickcat::State::SAFE_OP));
+}
+
+TEST(EL1258, InvertMask_SDO)
+{
+    NetworkSimulator sim;
+    sim.initialize();
+    sim.clearSlaves();
+
+    auto el = std::make_shared<EL1258Slave>(1);
+    el->setPower(false);
+    el->setPowerButton(false);
+    sim.addVirtualSlave(el);
+
+    uint32_t v = 0;
+    // Baseline: both DI0, DI1 are 0
+    ASSERT_TRUE(sdo_upload(sim, 1, 0x6000, 1, v));
+    EXPECT_EQ(v, 0u);
+    ASSERT_TRUE(sdo_upload(sim, 1, 0x6000, 2, v));
+    EXPECT_EQ(v, 0u);
+
+    // Invert both channels
+    ASSERT_TRUE(sdo_download_u32(sim, 1, 0x8000, 0x00, 0x00000003u));
+
+    // Now reads should be inverted to 1
+    ASSERT_TRUE(sdo_upload(sim, 1, 0x6000, 1, v));
+    EXPECT_EQ(v, 1u);
+    ASSERT_TRUE(sdo_upload(sim, 1, 0x6000, 2, v));
+    EXPECT_EQ(v, 1u);
+}
+
+TEST(EL1258, Debounce_Global_SDO)
+{
+    using namespace std::chrono_literals;
+    NetworkSimulator sim;
+    sim.initialize();
+    sim.clearSlaves();
+
+    auto el = std::make_shared<EL1258Slave>(1);
+    el->setPowerButton(false);
+    sim.addVirtualSlave(el);
+
+    uint32_t v = 0;
+    // Debounce 30ms
+    ASSERT_TRUE(sdo_download_u32(sim, 1, 0x8001, 0x00, 30));
+
+    // Change DI0 to 1 but read immediately -> still 0 due to debounce
+    el->setPowerButton(true);
+    ASSERT_TRUE(sdo_upload(sim, 1, 0x6000, 1, v));
+    EXPECT_EQ(v, 0u);
+
+    // After 40ms, it should reflect 1
+    std::this_thread::sleep_for(40ms);
+    ASSERT_TRUE(sdo_upload(sim, 1, 0x6000, 1, v));
+    EXPECT_EQ(v, 1u);
 }

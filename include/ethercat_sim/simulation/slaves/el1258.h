@@ -36,16 +36,16 @@ public:
     void setPower(bool on) noexcept { power_ = on; updateDerivedInputs_(); }
     bool power() const noexcept { return power_; }
 
-    void setPowerButton(bool pressed) noexcept { power_button_ = pressed; di_[0] = pressed; }
+    void setPowerButton(bool pressed) noexcept { power_button_ = pressed; setRawInput_(0, pressed); }
     bool powerButton() const noexcept { return power_button_; }
 
     void setInput(int channel, bool value) noexcept {
         if (channel >= 0 && channel < 8) {
-            di_[channel] = value;
+            setRawInput_(channel, value);
             if (channel == 1) power_ = value; // AC_ON과 전원 동기화 허용(명시적 설정 시)
         }
     }
-    bool input(int channel) const noexcept { return (channel >= 0 && channel < 8) ? di_[channel] : false; }
+    bool input(int channel) const noexcept { return (channel >= 0 && channel < 8) ? effectiveBit_(channel) : false; }
 
 protected:
     // CoE SDO Upload hook
@@ -53,7 +53,7 @@ protected:
     {
         // 0x6000: Digital Inputs, subindex 1..8 -> boolean
         if (index == 0x6000 && subindex >= 1 && subindex <= 8) {
-            value = di_[subindex - 1] ? 1u : 0u;
+            value = effectiveBit_(subindex - 1) ? 1u : 0u;
             return true;
         }
         // 0x6002: Optionally return aggregated bitfield (bit0..bit7)
@@ -61,6 +61,10 @@ protected:
             value = aggregateBits_();
             return true;
         }
+        // 0x8000: Invert mask (bit0..bit7). subindex 0
+        if (index == 0x8000 && subindex == 0x00) { value = invert_mask_; return true; }
+        // 0x8001: Debounce time (ms) global. subindex 0
+        if (index == 0x8001 && subindex == 0x00) { value = debounce_ms_; return true; }
         // 0x1A00: TxPDO mapping (readback)
         if (index == 0x1A00) {
             if (subindex == 0) { value = txpdo_count_; return true; }
@@ -79,7 +83,15 @@ protected:
     bool onSdoDownload(uint16_t index, uint8_t subindex, uint32_t value, uint8_t /*nbytes*/) noexcept override
     {
         bool changed = false;
-        if (index == 0x1A00) {
+        if (index == 0x8000 && subindex == 0x00) {
+            invert_mask_ = static_cast<uint8_t>(value & 0xFF);
+            changed = true;
+        }
+        else if (index == 0x8001 && subindex == 0x00) {
+            debounce_ms_ = static_cast<uint16_t>(value & 0xFFFF);
+            changed = true;
+        }
+        else if (index == 0x1A00) {
             if (subindex == 0) {
                 txpdo_count_ = static_cast<uint8_t>(value & 0xFF);
                 if (txpdo_count_ > 8) txpdo_count_ = 8;
@@ -123,14 +135,18 @@ protected:
 private:
     void updateDerivedInputs_() noexcept
     {
-        di_[1] = power_;     // DI1 mirrors AC_ON
-        di_[0] = power_button_; // DI0 = POWER_BUTTON
+        setRawInput_(1, power_);        // DI1 mirrors AC_ON
+        setRawInput_(0, power_button_); // DI0 = POWER_BUTTON
         // DI2..DI7 remain as-is (default false)
     }
 
     bool power_ {false};
     bool power_button_ {false};
-    bool di_[8] {false, false, false, false, false, false, false, false};
+    bool raw_di_[8] {false, false, false, false, false, false, false, false};
+    bool eff_di_[8] {false, false, false, false, false, false, false, false};
+    uint8_t invert_mask_ {0};
+    uint16_t debounce_ms_ {0};
+    std::chrono::steady_clock::time_point last_change_[8] {std::chrono::steady_clock::now(), std::chrono::steady_clock::now(), std::chrono::steady_clock::now(), std::chrono::steady_clock::now(), std::chrono::steady_clock::now(), std::chrono::steady_clock::now(), std::chrono::steady_clock::now(), std::chrono::steady_clock::now()};
 
     // Minimal CoE PDO mapping state
     uint8_t txpdo_count_ {0};
@@ -138,10 +154,36 @@ private:
     uint8_t assign_count_ {0};
     uint16_t assign_entries_[4] {0,0,0,0};
 
+    void setRawInput_(int ch, bool v) noexcept
+    {
+        if (ch < 0 || ch >= 8) return;
+        if (raw_di_[ch] != v) {
+            raw_di_[ch] = v;
+            last_change_[ch] = std::chrono::steady_clock::now();
+        }
+    }
+
+    bool effectiveBit_(int ch) const noexcept
+    {
+        if (ch < 0 || ch >= 8) return false;
+        // Debounce: update eff only if stable long enough
+        if (debounce_ms_ == 0) {
+            return ((raw_di_[ch] ^ ((invert_mask_ >> ch) & 0x1)) != 0);
+        }
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_change_[ch]).count();
+        if (eff_di_[ch] != raw_di_[ch] && elapsed >= debounce_ms_) {
+            const_cast<EL1258Slave*>(this)->eff_di_[ch] = raw_di_[ch];
+        }
+        bool val = eff_di_[ch];
+        val = val ^ (((invert_mask_ >> ch) & 0x1) != 0);
+        return val;
+    }
+
     uint32_t aggregateBits_() const noexcept
     {
         uint32_t bits = 0;
-        for (int i = 0; i < 8; ++i) bits |= (di_[i] ? (1u << i) : 0u);
+        for (int i = 0; i < 8; ++i) bits |= (effectiveBit_(i) ? (1u << i) : 0u);
         return bits;
     }
 };
