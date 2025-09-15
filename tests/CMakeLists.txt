@@ -134,8 +134,7 @@ target_link_libraries(test_el1258
         GTest::gtest
         GTest::gtest_main
 )
-gtest_discover_tests(test_el1258 TEST_LIST el1258_tests PROPERTIES LABELS "core")
-set_property(TEST ${el1258_tests} APPEND PROPERTY LABELS slave)
+gtest_discover_tests(test_el1258 PROPERTIES LABELS "core;slave")
 
 # DDS pub/sub test (FastDDS + Shared Memory only)
 if(HAVE_FASTDDS)

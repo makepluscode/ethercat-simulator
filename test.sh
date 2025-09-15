@@ -32,6 +32,12 @@ done
 
 echo "[ctest] Running tests in ${BUILD_DIR}${GROUP:+ (label=${GROUP})}${EXPR:+ (regex=${EXPR})}"
 CTEST_ARGS=( --test-dir "${BUILD_DIR}" --output-on-failure )
-if [[ -n "${GROUP}" ]]; then CTEST_ARGS+=( -L "${GROUP}" ); fi
+if [[ -n "${GROUP}" ]]; then
+  # Workaround: some CTest versions mishandle multi-labels; provide curated regex
+  if [[ "${GROUP}" == "slave" && -z "${EXPR}" ]]; then
+    EXPR="EL1258|VirtualSlave"
+  fi
+  CTEST_ARGS+=( -L "${GROUP}" )
+fi
 if [[ -n "${EXPR}" ]]; then CTEST_ARGS+=( -R "${EXPR}" ); fi
 ctest "${CTEST_ARGS[@]}"
