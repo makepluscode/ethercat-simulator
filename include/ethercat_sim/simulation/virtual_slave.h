@@ -185,8 +185,10 @@ protected:
     // Allow derived classes (specific slaves) to answer SDO Upload values
     virtual bool onSdoUpload(uint16_t /*index*/, uint8_t /*subindex*/, uint32_t& /*value*/) const noexcept { return false; }
 
-    // Optional: return digital inputs bitfield for PDO mapping (LSB=channel0)
-    virtual bool atus(uint32_t& /*bits_out*/) const noexcept { return false; }
+    // Allow derived classes to handle SDO Download writes (expedited only, up to 4 bytes)
+    virtual bool onSdoDownload(uint16_t /*index*/, uint8_t /*subindex*/, uint32_t /*value*/, uint8_t /*nbytes*/) noexcept { return false; }
+
+    // (legacy placeholder removed)
 
 private:
 
@@ -246,40 +248,61 @@ private:
         auto* header = reinterpret_cast<::kickcat::mailbox::Header*>(mb_in_.data());
         auto* coe = ::kickcat::pointData<::kickcat::CoE::Header>(header);
         auto* sdo = ::kickcat::pointData<::kickcat::CoE::ServiceData>(coe);
-        // Read OD index/subindex but respond unconditionally (minimal stub)
+        // Minimal SDO handling: Upload/Download expedited only
         uint16_t req_index = sdo->index;
         uint8_t  req_sub   = sdo->subindex;
-        uint32_t value = 0;
-        bool handled = false;
-        if (req_index == 0x1018 && req_sub == 1) { value = vendor_id_; handled = true; }
-        else if (req_index == 0x1018 && req_sub == 2) { value = product_code_; handled = true; }
-        else if (req_index == 0x1018 && req_sub == 3) { value = 0; handled = true; }
-        else if (req_index == 0x1018 && req_sub == 4) { value = 0; handled = true; }
-        else {
-            uint32_t v = 0;
-            if (onSdoUpload(req_index, req_sub, v)) {
-                value = v;
-                handled = true;
-            }
-        }
 
-        // Compose response in mb_out_
+        // Prepare response header
         std::fill(mb_out_.begin(), mb_out_.end(), 0);
         auto* rh = reinterpret_cast<::kickcat::mailbox::Header*>(mb_out_.data());
         auto* rc = ::kickcat::pointData<::kickcat::CoE::Header>(rh);
         auto* rs = ::kickcat::pointData<::kickcat::CoE::ServiceData>(rc);
-        rh->len = 10; // fixed for expedited
         rh->type = ::kickcat::mailbox::CoE;
         rh->count = header->count; // echo session handle
         rc->service = ::kickcat::CoE::SDO_RESPONSE;
         rc->number = 0;
         rs->index = req_index;
         rs->subindex = req_sub;
-        rs->command = ::kickcat::CoE::SDO::response::UPLOAD;
-        rs->transfer_type = 1;
+        rs->transfer_type = 1; // expedited
         rs->size_indicator = 1;
         rs->block_size = 0;
-        std::memcpy(::kickcat::pointData<uint8_t>(rs), &value, sizeof(uint32_t));
+
+        if (coe->service == ::kickcat::CoE::SDO_REQUEST && sdo->command == ::kickcat::CoE::SDO::request::UPLOAD) {
+            uint32_t value = 0;
+            bool handled = false;
+            if (req_index == 0x1018 && req_sub == 1) { value = vendor_id_; handled = true; }
+            else if (req_index == 0x1018 && req_sub == 2) { value = product_code_; handled = true; }
+            else if (req_index == 0x1018 && req_sub == 3) { value = 0; handled = true; }
+            else if (req_index == 0x1018 && req_sub == 4) { value = 0; handled = true; }
+            else {
+                uint32_t v = 0;
+                if (onSdoUpload(req_index, req_sub, v)) {
+                    value = v;
+                    handled = true;
+                }
+            }
+            // Upload response
+            rs->command = ::kickcat::CoE::SDO::response::UPLOAD;
+            std::memcpy(::kickcat::pointData<uint8_t>(rs), &value, sizeof(uint32_t));
+            rh->len = 10; // expedited payload
+        }
+        else if (coe->service == ::kickcat::CoE::SDO_REQUEST && sdo->command == ::kickcat::CoE::SDO::request::DOWNLOAD) {
+            // Read up to 4 bytes of expedited data
+            uint32_t v = 0;
+            std::memcpy(&v, ::kickcat::pointData<uint8_t>(sdo), sizeof(uint32_t));
+            // We don't parse nbytes precisely; assume 4 for simplicity
+            (void)onSdoDownload(req_index, req_sub, v, 4);
+            // Download ack response (no data)
+            rs->command = ::kickcat::CoE::SDO::response::DOWNLOAD;
+            rh->len = 10; // minimal header length kept consistent
+        }
+        else {
+            // Unknown, still respond with UPLOAD and zero
+            rs->command = ::kickcat::CoE::SDO::response::UPLOAD;
+            uint32_t zero = 0;
+            std::memcpy(::kickcat::pointData<uint8_t>(rs), &zero, sizeof(uint32_t));
+            rh->len = 10;
+        }
 
         mb_have_reply_ = true;
         syncSMStatus_();

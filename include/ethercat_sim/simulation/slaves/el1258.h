@@ -45,19 +45,65 @@ protected:
         }
         // 0x6002: Optionally return aggregated bitfield (bit0..bit7)
         if (index == 0x6002 && subindex == 0x00) {
-            uint32_t bits = 0;
-            for (int i = 0; i < 8; ++i) bits |= (di_[i] ? (1u << i) : 0u);
-            value = bits;
+            value = aggregateBits_();
             return true;
+        }
+        // 0x1A00: TxPDO mapping (readback)
+        if (index == 0x1A00) {
+            if (subindex == 0) { value = txpdo_count_; return true; }
+            uint8_t si = subindex - 1;
+            if (subindex >= 1 && si < 8) { value = txpdo_entries_[si]; return true; }
+        }
+        // 0x1C13: SyncManager TxPDO assignment (readback)
+        if (index == 0x1C13) {
+            if (subindex == 0) { value = assign_count_; return true; }
+            uint8_t si = subindex - 1;
+            if (subindex >= 1 && si < 4) { value = assign_entries_[si]; return true; }
         }
         return false;
     }
 
+    bool onSdoDownload(uint16_t index, uint8_t subindex, uint32_t value, uint8_t /*nbytes*/) noexcept override
+    {
+        bool changed = false;
+        if (index == 0x1A00) {
+            if (subindex == 0) {
+                txpdo_count_ = static_cast<uint8_t>(value & 0xFF);
+                if (txpdo_count_ > 8) txpdo_count_ = 8;
+                // Clear existing entries beyond count
+                for (int i = txpdo_count_; i < 8; ++i) txpdo_entries_[i] = 0;
+                changed = true;
+            } else if (subindex >= 1 && subindex <= 8) {
+                txpdo_entries_[subindex - 1] = value;
+                changed = true;
+            }
+        }
+        else if (index == 0x1C13) {
+            if (subindex == 0) {
+                assign_count_ = static_cast<uint8_t>(value & 0xFF);
+                if (assign_count_ > 4) assign_count_ = 4;
+                for (int i = assign_count_; i < 4; ++i) assign_entries_[i] = 0;
+                changed = true;
+            } else if (subindex >= 1 && subindex <= 4) {
+                assign_entries_[subindex - 1] = static_cast<uint16_t>(value & 0xFFFF);
+                changed = true;
+            }
+        }
+        if (changed) {
+            // Consider mapping valid when TxPDO assigned and at least one entry mapped
+            bool assigned = false;
+            for (int i = 0; i < assign_count_; ++i) {
+                if (assign_entries_[i] == 0x1A00) { assigned = true; break; }
+            }
+            bool has_entries = txpdo_count_ > 0;
+            setInputPDOMapped(assigned && has_entries);
+        }
+        return changed;
+    }
+
     bool readDigitalInputsBitfield(uint32_t& bits_out) const noexcept override
     {
-        uint32_t bits = 0;
-        for (int i = 0; i < 8; ++i) bits |= (di_[i] ? (1u << i) : 0u);
-        bits_out = bits;
+        bits_out = aggregateBits_();
         return true;
     }
 
@@ -72,6 +118,19 @@ private:
     bool power_ {false};
     bool power_button_ {false};
     bool di_[8] {false, false, false, false, false, false, false, false};
+
+    // Minimal CoE PDO mapping state
+    uint8_t txpdo_count_ {0};
+    uint32_t txpdo_entries_[8] {0,0,0,0,0,0,0,0};
+    uint8_t assign_count_ {0};
+    uint16_t assign_entries_[4] {0,0,0,0};
+
+    uint32_t aggregateBits_() const noexcept
+    {
+        uint32_t bits = 0;
+        for (int i = 0; i < 8; ++i) bits |= (di_[i] ? (1u << i) : 0u);
+        return bits;
+    }
 };
 
 } // namespace ethercat_sim::simulation::slaves
