@@ -91,8 +91,15 @@ To provide a robust, efficient, and easy-to-use EtherCAT master library that ena
 - **REQ-027**: Provide simple data processing algorithms
 - **REQ-028**: Track slave state (online/offline)
 - **REQ-029**: Support multiple virtual slaves in single network
+ - **IMP-AL1**: Implemented AL state gating: SAFE_OP/OPERATIONAL allowed only if input PDO mapping is valid; otherwise AL_STATUS_CODE=0x0011.
 
-#### 3.3.3 Elmo Motor Slave (`ElmoMotorSlave`)
+#### 3.3.3 Digital Input Slave (`EL1258Slave`)
+- **IMP-EL1**: 8-channel DI with per-channel (`0x6000:01..08`) and aggregate (`0x6002:00`) reads
+- **IMP-EL2**: CoE PDO mapping subset — `0x1A00` (TxPDO mapping), `0x1C13` (assignment), helper for default mapping of `0x6002:00` (8 bits)
+- **IMP-EL3**: Channel settings SDOs — `0x8000:00` invert mask, `0x8001:00` debounce (ms)
+- **IMP-EL4**: Basic device info — `0x1000/0x1008/0x1009/0x100A` (expedited 4-byte prefix)
+
+#### 3.3.4 Elmo Motor Slave (`ElmoMotorSlave`)
 - **REQ-030**: Implement Elmo motor-specific EtherCAT slave behavior
 - **REQ-031**: Leverage existing Elmo motor control code
 - **REQ-032**: Support Elmo motor parameters (position, velocity, torque)
@@ -137,6 +144,8 @@ To provide a robust, efficient, and easy-to-use EtherCAT master library that ena
 - **REQ-057**: Provide topic-based messaging system
 - **REQ-058**: Implement data serialization for GUI communication
 - **REQ-059**: Support multiple GUI clients simultaneously
+ - **IMP-DDS1**: TextMsg topic with bounded serialization (truncation at 1024 chars) to avoid overrun
+ - **IMP-DDS2**: Tests prefer Shared Memory transport; auto-skip when SHM is unavailable in restricted environments
 
 #### 3.5.3 Elmo Dashboard
 - **REQ-060**: Implement Elmo motor status dashboard

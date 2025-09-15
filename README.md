@@ -79,6 +79,20 @@ bash tools/sync_kickcat.sh
   - `bash ./tui.sh --debug --fresh`
 The TUI subscribes to topic `sim_text` with `TextMsg` and shows the latest text published by `examples/fastdds_sim_pub` or `examples/simul`.
 
+Notes on DDS transports
+- Tests prefer Shared Memory transport; in restricted/sandboxed envs SHM may be denied. Our tests auto-skip in that case.
+- `examples/fastdds_sim_pub` tries SHM first then falls back to builtin UDP; in locked-down sandboxes even UDP may be blocked.
+
+## Tests by Group
+- Run all: `./test.sh`
+- By label:
+  - Core: `./test.sh -L core`
+  - Examples: `./test.sh -L examples`
+  - DDS: `./test.sh -L dds`
+  - UI: `./test.sh -L ui`
+  - Slave-focused: `./test.sh -L slave` (or `./test.sh -R "EL1258|VirtualSlave"`)
+- Regex filter: `./test.sh -R "EL1258|VirtualSlave"`
+
 ## Coding Style
 - C++17+, 4-space indent, LF, UTF-8. Use `clang-format` (LLVM, 100 cols).
 - Conventions and contribution rules: see `AGENTS.md`.
@@ -87,6 +101,20 @@ The TUI subscribes to topic `sim_text` with `TextMsg` and shows the latest text 
 - “Could not find fastdds”: run the Conan step with `-o ethercat-simulator*:with_fastdds=True` and pass `-DCMAKE_PREFIX_PATH=$PWD/build` to CMake.
 - “Could not find GTest/kickcat”: ensure Conan step ran and pass `-DCMAKE_PREFIX_PATH=$PWD/build` on configure.
 - Network/permissions: the simulator runs unprivileged; real NIC access (future) may require capabilities.
+
+## EL1258 (8x DI) Support Summary
+- CoE objects (subset):
+  - `0x6000:01..08` per-channel input (bool), `0x6002:00` aggregated bitfield
+  - `0x1A00` TxPDO mapping (Sub0=count, Sub1..N=mapping entries)
+  - `0x1C13` SM assignment for TxPDO (Sub0=count, Sub1..N=0x1A00)
+  - `0x8000:00` invert mask (bit0..bit7), `0x8001:00` debounce time (ms)
+  - `0x1000:00` device type, `0x1008/0x1009/0x100A:00` strings (expedited, 4-byte prefix)
+- AL gating: SAFE_OP/OPERATIONAL requires input PDO mapping to be valid. If not, `AL_STATUS_CODE=0x0011` and state remains INIT.
+- Helpers: `applyDefaultTxPdoMapping()` sets a single-byte TxPDO (`0x6002:00`, 8 bits) and assigns it for quick SAFE_OP enablement.
+
+## Scripts
+- `build.sh`: standardized build using Conan + CMake. `--debug`, `--clean`. Uses repo-local Conan cache (`.conan2`).
+- `tui.sh`: builds only the TUI (and optional DDS publisher). Options: `--debug|--release`, `--fresh`, `--dds|--no-dds`, `--run-pub`.
 
 ## Architecture Overview
 ```
