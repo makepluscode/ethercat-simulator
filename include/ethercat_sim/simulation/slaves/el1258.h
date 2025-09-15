@@ -19,6 +19,19 @@ public:
         updateDerivedInputs_();
     }
 
+    // Apply a sensible default TxPDO mapping for 8 DI channels:
+    // - 0x1A00:01 = 0x6002:00 (8 bits aggregate)
+    // - 0x1C13:01 = 0x1A00 assignment
+    // This marks inputs as PDO-mapped for AL state gating purposes.
+    void applyDefaultTxPdoMapping() noexcept
+    {
+        txpdo_count_ = 1;
+        txpdo_entries_[0] = (0x6002u << 16) | (0x00u << 8) | 8u;
+        assign_count_ = 1;
+        assign_entries_[0] = 0x1A00;
+        setInputPDOMapped(true);
+    }
+
     // External controls
     void setPower(bool on) noexcept { power_ = on; updateDerivedInputs_(); }
     bool power() const noexcept { return power_; }

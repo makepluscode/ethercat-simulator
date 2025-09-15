@@ -197,3 +197,22 @@ TEST(EL1258, CoE_TxPDO_Mapping_Enables_SafeOp)
     ASSERT_TRUE(sim.readFromSlave(1, ::kickcat::reg::AL_STATUS, al_st, sizeof(al_st)));
     EXPECT_EQ(al_st[0], static_cast<uint8_t>(::kickcat::State::SAFE_OP));
 }
+
+TEST(EL1258, DefaultTxPdoMapping_Enables_SafeOp)
+{
+    NetworkSimulator sim;
+    sim.initialize();
+    sim.clearSlaves();
+
+    auto el = std::make_shared<EL1258Slave>(1);
+    // Apply built-in default mapping
+    el->applyDefaultTxPdoMapping();
+    sim.addVirtualSlave(el);
+
+    // SAFE_OP should be allowed now
+    uint8_t al_ctl_safe[2] = { static_cast<uint8_t>(::kickcat::State::SAFE_OP), 0x00 };
+    ASSERT_TRUE(sim.writeToSlave(1, ::kickcat::reg::AL_CONTROL, al_ctl_safe, sizeof(al_ctl_safe)));
+    uint8_t al_st[2] = {0};
+    ASSERT_TRUE(sim.readFromSlave(1, ::kickcat::reg::AL_STATUS, al_st, sizeof(al_st)));
+    EXPECT_EQ(al_st[0], static_cast<uint8_t>(::kickcat::State::SAFE_OP));
+}
