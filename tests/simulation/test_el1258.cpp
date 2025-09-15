@@ -105,3 +105,39 @@ TEST(EL1258, PDO_Mapping_To_LogicalMemory)
     ASSERT_TRUE(sim.readLogical(0x0000, &byte, 1));
     EXPECT_EQ(byte & 0x01, 0x01);
 }
+
+TEST(EL1258, AL_Transition_Gating_By_PDO_Mapping)
+{
+    NetworkSimulator sim;
+    sim.initialize();
+    sim.clearSlaves();
+
+    auto el = std::make_shared<EL1258Slave>(1);
+    sim.addVirtualSlave(el);
+
+    // Initially INIT
+    uint8_t al_status[2] = {0};
+    ASSERT_TRUE(sim.readFromSlave(1, ::kickcat::reg::AL_STATUS, al_status, sizeof(al_status)));
+    EXPECT_EQ(al_status[0], static_cast<uint8_t>(::kickcat::State::INIT));
+
+    // Try SAFE_OP without PDO mapping -> denied
+    uint8_t al_ctl_safe[2] = { static_cast<uint8_t>(::kickcat::State::SAFE_OP), 0x00 };
+    ASSERT_TRUE(sim.writeToSlave(1, ::kickcat::reg::AL_CONTROL, al_ctl_safe, sizeof(al_ctl_safe)));
+    ASSERT_TRUE(sim.readFromSlave(1, ::kickcat::reg::AL_STATUS, al_status, sizeof(al_status)));
+    EXPECT_EQ(al_status[0], static_cast<uint8_t>(::kickcat::State::INIT));
+    uint8_t al_code[2] = {0};
+    ASSERT_TRUE(sim.readFromSlave(1, ::kickcat::reg::AL_STATUS_CODE, al_code, sizeof(al_code)));
+    EXPECT_NE(static_cast<uint16_t>(al_code[0] | (al_code[1] << 8)), 0u);
+
+    // Map inputs and retry SAFE_OP -> allowed
+    sim.mapDigitalInputs(el, 0x0000, 1);
+    ASSERT_TRUE(sim.writeToSlave(1, ::kickcat::reg::AL_CONTROL, al_ctl_safe, sizeof(al_ctl_safe)));
+    ASSERT_TRUE(sim.readFromSlave(1, ::kickcat::reg::AL_STATUS, al_status, sizeof(al_status)));
+    EXPECT_EQ(al_status[0], static_cast<uint8_t>(::kickcat::State::SAFE_OP));
+
+    // OP should also be allowed now
+    uint8_t al_ctl_op[2] = { static_cast<uint8_t>(::kickcat::State::OPERATIONAL), 0x00 };
+    ASSERT_TRUE(sim.writeToSlave(1, ::kickcat::reg::AL_CONTROL, al_ctl_op, sizeof(al_ctl_op)));
+    ASSERT_TRUE(sim.readFromSlave(1, ::kickcat::reg::AL_STATUS, al_status, sizeof(al_status)));
+    EXPECT_EQ(al_status[0], static_cast<uint8_t>(::kickcat::State::OPERATIONAL));
+}

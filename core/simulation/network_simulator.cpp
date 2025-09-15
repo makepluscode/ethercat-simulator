@@ -213,11 +213,19 @@ void NetworkSimulator::mapDigitalInputs(const std::shared_ptr<VirtualSlave>& sla
 {
     std::lock_guard<std::mutex> lock(mutex_);
     input_maps_.push_back(InputMap{slave, logical_address, width_bytes});
+    if (slave) {
+        slave->setInputPDOMapped(true);
+    }
 }
 
 void NetworkSimulator::clearInputMappings() noexcept
 {
     std::lock_guard<std::mutex> lock(mutex_);
+    for (auto& m : input_maps_) {
+        if (auto s = m.slave.lock()) {
+            s->setInputPDOMapped(false);
+        }
+    }
     input_maps_.clear();
 }
 

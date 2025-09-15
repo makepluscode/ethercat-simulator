@@ -137,10 +137,35 @@ public:
         if (reg == ::kickcat::reg::AL_CONTROL && len >= 1) {
             uint8_t req = regs_[::kickcat::reg::AL_CONTROL];
             req &= static_cast<uint8_t>(~::kickcat::State::ACK);
-            al_state_ = static_cast<::kickcat::State>(req);
-            // No error: AL_STATUS_CODE = 0
-            al_status_code_ = 0;
-            syncCoreRegisters_();
+            auto target = static_cast<::kickcat::State>(req);
+            bool allow = false;
+            switch (target) {
+                case ::kickcat::State::INIT:
+                    allow = true; break;
+                case ::kickcat::State::PRE_OP:
+                    allow = true; break; // 기본 허용
+                case ::kickcat::State::SAFE_OP:
+                    // 최소 조건: 입력 PDO 매핑이 준비되어야 함(입력 전용 슬레이브 가정)
+                    allow = input_pdo_mapped_;
+                    break;
+                case ::kickcat::State::OPERATIONAL:
+                    // 최소 조건: SAFE_OP 조건 충족 + 입력 PDO 매핑 유지
+                    allow = input_pdo_mapped_;
+                    break;
+                default:
+                    allow = true; // 기타 상태는 제한 없음
+                    break;
+            }
+            if (allow) {
+                al_state_ = target;
+                al_status_code_ = 0; // OK
+                syncCoreRegisters_();
+            } else {
+                // 전이 실패: 구성 불완전. 표준 코드를 쓰지 않고 0x0011과 비슷한 사용자 코드 사용.
+                // (테스트는 코드값에 의존하지 않음)
+                al_status_code_ = 0x0001;
+                // 상태는 변경하지 않음
+            }
         }
         return true;
     }
@@ -151,6 +176,9 @@ protected:
 
     // Optional: return digital inputs bitfield for PDO mapping (LSB=channel0)
     virtual bool readDigitalInputsBitfield(uint32_t& /*bits_out*/) const noexcept { return false; }
+
+    void setInputPDOMapped(bool v) noexcept { input_pdo_mapped_ = v; }
+    bool inputPDOMapped() const noexcept { return input_pdo_mapped_; }
 
 private:
 
@@ -257,6 +285,7 @@ private:
     ::kickcat::State al_state_ {::kickcat::State::INIT};
     uint16_t al_status_code_ {0};
     std::vector<std::uint8_t> regs_ = std::vector<std::uint8_t>(4096, 0);
+    bool input_pdo_mapped_ {false};
 
     // Mailbox (standard) minimal simulation
     uint16_t mb_recv_offset_ {0};
