@@ -5,7 +5,7 @@
 
 #include <fastdds/dds/topic/TypeSupport.hpp>
 #include <fastdds/dds/topic/TopicDataType.hpp>
-#include <fastdds/rtps/common/SerializedPayload.h>
+#include <fastdds/rtps/common/SerializedPayload.hpp>
 #include <fastcdr/FastBuffer.h>
 #include <fastcdr/Cdr.h>
 
@@ -15,13 +15,28 @@ struct TextMsg {
     std::string text;
 };
 
+// Upper bound for serialized text to keep DDS payload allocation safe.
+// Messages longer than this may be truncated during serialization.
+inline constexpr std::size_t TEXTMSG_MAX_LEN = 1024u;
+
 class TextMsgPubSubType : public eprosima::fastdds::dds::TopicDataType {
 public:
     TextMsgPubSubType();
-    bool serialize(void* data, eprosima::fastrtps::rtps::SerializedPayload_t* payload) override;
-    bool deserialize(eprosima::fastrtps::rtps::SerializedPayload_t* payload, void* data) override;
-    std::function<uint32_t()> getSerializedSizeProvider(void* data) override;
-    bool getKey(void* data, eprosima::fastrtps::rtps::InstanceHandle_t*, bool) override { (void)data; return false; }
+    bool serialize(const void* const data,
+                   eprosima::fastdds::rtps::SerializedPayload_t& payload,
+                   eprosima::fastdds::dds::DataRepresentationId_t representation) override;
+    bool deserialize(eprosima::fastdds::rtps::SerializedPayload_t& payload,
+                     void* data) override;
+    uint32_t calculate_serialized_size(const void* const data,
+                                       eprosima::fastdds::dds::DataRepresentationId_t representation) override;
+    void* create_data() override;
+    void delete_data(void* data) override;
+    bool compute_key(eprosima::fastdds::rtps::SerializedPayload_t&,
+                     eprosima::fastdds::rtps::InstanceHandle_t&,
+                     bool) override { return false; }
+    bool compute_key(const void* const,
+                     eprosima::fastdds::rtps::InstanceHandle_t&,
+                     bool) override { return false; }
 };
 
 } // namespace ethercat_sim::communication

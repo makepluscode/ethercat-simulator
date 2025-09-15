@@ -6,9 +6,10 @@ target_link_libraries(tui
     PRIVATE
         ftxui::dom
         ftxui::screen
+        ftxui::component
 )
 
-target_link_libraries(tui PRIVATE ethercat_dds fastdds::fastdds)
+target_link_libraries(tui PRIVATE ethercat_dds fastdds)
 
 # Register a simple smoke test for the TUI app
 if(BUILD_TESTING)

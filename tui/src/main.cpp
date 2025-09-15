@@ -19,11 +19,12 @@
 // FastDDS
 #include <fastdds/dds/core/ReturnCode.hpp>
 #include <fastdds/dds/domain/DomainParticipantFactory.hpp>
+#include <fastdds/dds/domain/DomainParticipant.hpp>
 #include <fastdds/dds/subscriber/DataReader.hpp>
 #include <fastdds/dds/subscriber/SampleInfo.hpp>
 #include <fastdds/dds/subscriber/Subscriber.hpp>
 #include <fastdds/dds/topic/Topic.hpp>
-#include <fastdds/rtps/transport/shared_mem/SharedMemTransportDescriptor.h>
+#include <fastdds/rtps/transport/shared_mem/SharedMemTransportDescriptor.hpp>
 
 namespace {
 std::atomic<bool> g_running{true};
@@ -82,7 +83,7 @@ int main() {
     if (participant) {
         eprosima::fastdds::dds::TypeSupport type(new ethercat_sim::communication::TextMsgPubSubType());
         type.register_type(participant);
-        topic = participant->create_topic("sim_text", type->getName(),
+        topic = participant->create_topic("sim_text", type.get_type_name(),
                                           eprosima::fastdds::dds::TOPIC_QOS_DEFAULT);
         subscriber = participant->create_subscriber(
             eprosima::fastdds::dds::SUBSCRIBER_QOS_DEFAULT, nullptr);
@@ -101,7 +102,7 @@ int main() {
                 ethercat_sim::communication::TextMsg msg;
                 eprosima::fastdds::dds::SampleInfo info;
                 auto rc = reader->take_next_sample(&msg, &info);
-                if (rc == eprosima::fastdds::dds::ReturnCode_t::RETCODE_OK &&
+                if (rc == eprosima::fastdds::dds::RETCODE_OK &&
                     info.instance_state == eprosima::fastdds::dds::ALIVE_INSTANCE_STATE) {
                     {
                         std::lock_guard<std::mutex> lk(mtx);

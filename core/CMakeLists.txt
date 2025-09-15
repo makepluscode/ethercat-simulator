@@ -38,6 +38,6 @@ target_include_directories(ethercat_dds
 )
 target_link_libraries(ethercat_dds
     PUBLIC
-        fastdds::fastdds
+        fastdds
 )
 target_compile_features(ethercat_dds PUBLIC cxx_std_17)

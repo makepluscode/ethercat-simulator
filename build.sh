@@ -39,6 +39,8 @@ cmake_common_flags=("-DCMAKE_BUILD_TYPE=${BUILD_TYPE}")
 
 if [[ ${USE_CONAN} -eq 1 ]]; then
   command -v conan >/dev/null 2>&1 || { echo "Conan is required for --conan"; exit 1; }
+  # Use a repo-local Conan home to avoid writing outside the workspace
+  export CONAN_HOME="${CONAN_HOME:-$(pwd)/.conan2}"
   echo "[conan] Detecting profile"
   conan profile detect || true
   echo "[conan] Installing dependencies for ${BUILD_TYPE}"
@@ -46,7 +48,6 @@ if [[ ${USE_CONAN} -eq 1 ]]; then
   conan install . \
     -o ethercat-simulator*:with_fastdds=True \
     -o ethercat-simulator*:with_ftxui=True \
-    -c tools.cmake.cmaketoolchain:user_presets_path=${BUILD_DIR} \
     -c tools.cmake.cmaketoolchain:generator="Unix Makefiles" \
     -of "${BUILD_DIR}" -s "build_type=${BUILD_TYPE}" --build=missing
   cmake_common_flags+=("-DCMAKE_TOOLCHAIN_FILE=${BUILD_DIR}/conan_toolchain.cmake")

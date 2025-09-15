@@ -5,5 +5,5 @@ add_executable(simul
 target_link_libraries(simul
     PRIVATE
         ethercat_dds
-        fastdds::fastdds
+        fastdds
 )

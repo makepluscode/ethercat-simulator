@@ -15,7 +15,6 @@ JOBS=${JOBS:-$(command -v nproc >/dev/null 2>&1 && nproc || echo 4)}
 DDS=1
 RUN_PUB=0
 FRESH=0
-KICKCAT_REF_DEFAULT=${KICKCAT_REF_DEFAULT:-kickcat/v2.0-rc1}
 
 TUI_ARGS=()
 while [[ $# -gt 0 ]]; do
@@ -41,7 +40,7 @@ Options:
   --dds | --no-dds              Enable/disable FastDDS subscriber in TUI (default: enabled)
   --run-pub | --pub             Also build+run examples/simul (publisher) in background
   --fresh                       Remove build directory before configuring
-  --kickcat-ref <ref>           Conan reference for KickCAT (default: ${KICKCAT_REF_DEFAULT})
+  --kickcat-ref <ref>           Conan reference for KickCAT (optional)
   --                            Pass remaining args to the TUI binary
 
 Examples:
@@ -59,15 +58,14 @@ fi
 
 # Make sure Conan deps exist (FTXUI + KickCAT; FastDDS optional)
 if command -v conan >/dev/null 2>&1; then
+  # Use repo-local Conan home to keep cache within workspace
+  export CONAN_HOME="${CONAN_HOME:-$(pwd)/.conan2}"
   conan profile detect || true
   CONAN_OPTS=(
     -o ethercat-simulator*:with_kickcat=True
     -o ethercat-simulator*:with_ftxui=True
     -o ethercat-simulator*:with_fastdds=True
   )
-  if [[ -z "${KICKCAT_REF:-}" ]]; then
-    export KICKCAT_REF="$KICKCAT_REF_DEFAULT"
-  fi
   conan install . -of "$BUILD_DIR" -s build_type="$BUILD_TYPE" --build=missing ${CONAN_OPTS[*]}
 else
   echo "[tui.sh] WARNING: Conan not found. Assuming dependencies are available to CMake."

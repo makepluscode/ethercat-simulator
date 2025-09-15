@@ -1,46 +1,64 @@
 #include "ethercat_sim/communication/dds_text.h"
 
-using eprosima::fastdds::dds::TopicDataType;
-using eprosima::fastrtps::rtps::SerializedPayload_t;
-
 namespace ethercat_sim::communication {
 
 TextMsgPubSubType::TextMsgPubSubType()
 {
-    setName("TextMsg");
-    m_typeSize = static_cast<uint32_t>(4 /*encapsulation*/ + 4 /*len*/ + 256 /*approx*/ + 4 /*alignment*/);
-    m_isGetKeyDefined = false;
+    set_name("TextMsg");
+    // Bound the maximum serialized size to ensure Fast DDS allocates
+    // a sufficiently large payload buffer for serialize().
+    // Encapsulation(4) + length(4) + data(TEXTMSG_MAX_LEN) + padding(~4)
+    max_serialized_type_size = static_cast<uint32_t>(4 + 4 + TEXTMSG_MAX_LEN + 4);
+    is_compute_key_provided = false;
 }
 
-bool TextMsgPubSubType::serialize(void* data, SerializedPayload_t* payload)
+bool TextMsgPubSubType::serialize(const void* const data,
+                                  eprosima::fastdds::rtps::SerializedPayload_t& payload,
+                                  eprosima::fastdds::dds::DataRepresentationId_t /*representation*/)
 {
-    TextMsg* msg = static_cast<TextMsg*>(data);
-    eprosima::fastcdr::FastBuffer fastbuffer(reinterpret_cast<char*>(payload->data), payload->max_size);
+    const TextMsg* msg = static_cast<const TextMsg*>(data);
+    // Enforce maximum length to avoid overruns
+    std::string data_str = msg->text;
+    if (data_str.size() > TEXTMSG_MAX_LEN) {
+        data_str.resize(TEXTMSG_MAX_LEN);
+    }
+    // Serialize into provided payload buffer
+    eprosima::fastcdr::FastBuffer fastbuffer(reinterpret_cast<char*>(payload.data), payload.max_size);
     eprosima::fastcdr::Cdr ser(fastbuffer);
-    payload->encapsulation = ser.endianness() == eprosima::fastcdr::Cdr::BIG_ENDIANNESS ? CDR_BE : CDR_LE;
+    payload.encapsulation = ser.endianness() == eprosima::fastcdr::Cdr::BIG_ENDIANNESS ? CDR_BE : CDR_LE;
     ser.serialize_encapsulation();
-    ser << msg->text;
-    payload->length = static_cast<uint32_t>(ser.getSerializedDataLength());
+    ser << data_str;
+    payload.length = static_cast<uint32_t>(ser.get_serialized_data_length());
     return true;
 }
 
-bool TextMsgPubSubType::deserialize(SerializedPayload_t* payload, void* data)
+bool TextMsgPubSubType::deserialize(eprosima::fastdds::rtps::SerializedPayload_t& payload,
+                                    void* data)
 {
     TextMsg* msg = static_cast<TextMsg*>(data);
-    eprosima::fastcdr::FastBuffer fastbuffer(reinterpret_cast<char*>(payload->data), payload->length);
+    eprosima::fastcdr::FastBuffer fastbuffer(reinterpret_cast<char*>(payload.data), payload.length);
     eprosima::fastcdr::Cdr deser(fastbuffer);
     deser.read_encapsulation();
     deser >> msg->text;
     return true;
 }
 
-std::function<uint32_t()> TextMsgPubSubType::getSerializedSizeProvider(void* data)
+uint32_t TextMsgPubSubType::calculate_serialized_size(const void* const data,
+                                                      eprosima::fastdds::dds::DataRepresentationId_t /*representation*/)
 {
-    return [data]() -> uint32_t {
-        auto* msg = static_cast<TextMsg*>(data);
-        // 4 bytes for encapsulation + 4 for string length + content size
-        return static_cast<uint32_t>(4 + 4 + msg->text.size() + 4);
-    };
+    auto* msg = static_cast<const TextMsg*>(data);
+    const std::size_t n = std::min<std::size_t>(msg->text.size(), TEXTMSG_MAX_LEN);
+    return static_cast<uint32_t>(4 /*encapsulation*/ + 4 /*len*/ + n + 4 /*align*/);
+}
+
+void* TextMsgPubSubType::create_data()
+{
+    return new TextMsg();
+}
+
+void TextMsgPubSubType::delete_data(void* data)
+{
+    delete static_cast<TextMsg*>(data);
 }
 
 } // namespace ethercat_sim::communication

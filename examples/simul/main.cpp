@@ -5,7 +5,7 @@
 #include <fastdds/dds/publisher/Publisher.hpp>
 #include <fastdds/dds/publisher/DataWriter.hpp>
 #include <fastdds/dds/topic/Topic.hpp>
-#include <fastdds/rtps/transport/shared_mem/SharedMemTransportDescriptor.h>
+#include <fastdds/rtps/transport/shared_mem/SharedMemTransportDescriptor.hpp>
 #include <iostream>
 
 using ethercat_sim::communication::TextMsg;
@@ -23,7 +23,7 @@ int main()
     if (!participant) { std::cerr << "participant create failed" << std::endl; return 1; }
     type.register_type(participant);
 
-    eprosima::fastdds::dds::Topic* topic = participant->create_topic("sim_text", type->getName(), eprosima::fastdds::dds::TOPIC_QOS_DEFAULT);
+    eprosima::fastdds::dds::Topic* topic = participant->create_topic("sim_text", type.get_type_name(), eprosima::fastdds::dds::TOPIC_QOS_DEFAULT);
     eprosima::fastdds::dds::Publisher* pub = participant->create_publisher(eprosima::fastdds::dds::PUBLISHER_QOS_DEFAULT, nullptr);
     eprosima::fastdds::dds::DataWriter* writer = pub->create_datawriter(topic, eprosima::fastdds::dds::DATAWRITER_QOS_DEFAULT, nullptr);
 
