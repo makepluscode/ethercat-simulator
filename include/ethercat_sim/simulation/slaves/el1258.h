@@ -53,6 +53,14 @@ protected:
         return false;
     }
 
+    bool readDigitalInputsBitfield(uint32_t& bits_out) const noexcept override
+    {
+        uint32_t bits = 0;
+        for (int i = 0; i < 8; ++i) bits |= (di_[i] ? (1u << i) : 0u);
+        bits_out = bits;
+        return true;
+    }
+
 private:
     void updateDerivedInputs_() noexcept
     {
@@ -67,4 +75,3 @@ private:
 };
 
 } // namespace ethercat_sim::simulation::slaves
-

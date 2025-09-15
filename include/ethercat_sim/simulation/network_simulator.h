@@ -49,6 +49,14 @@ public:
     bool writeLogical(std::uint32_t logical_address, const std::uint8_t* data, std::size_t len) noexcept;
     bool readLogical(std::uint32_t logical_address, std::uint8_t* out, std::size_t len) const noexcept;
 
+    // Minimal PDO mapping helpers for input bitfields (e.g., EL1258):
+    // Map a slave's digital input bitfield into logical memory at logical_address.
+    // width_bytes is the number of bytes to write (default 1 for 8 DI channels).
+    void mapDigitalInputs(const std::shared_ptr<VirtualSlave>& slave,
+                          std::uint32_t logical_address,
+                          std::size_t width_bytes = 1) noexcept;
+    void clearInputMappings() noexcept;
+
 private:
     struct FrameItem {
         communication::EtherCATFrame frame;
@@ -62,6 +70,13 @@ private:
     std::deque<FrameItem> queue_;
     std::vector<std::shared_ptr<VirtualSlave>> slaves_;
     std::vector<std::uint8_t> logical_ = std::vector<std::uint8_t>(16384, 0);
+
+    struct InputMap {
+        std::weak_ptr<VirtualSlave> slave;
+        std::uint32_t logical_address {0};
+        std::size_t width_bytes {1};
+    };
+    std::vector<InputMap> input_maps_;
 
     // Internal helpers (no locking) to centralize slave lookup
     std::shared_ptr<VirtualSlave> getSlaveByStationAddressNoLock(std::uint16_t addr) const noexcept;

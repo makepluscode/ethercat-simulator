@@ -13,8 +13,25 @@ void NetworkSimulator::initialize(const std::string& config) noexcept
 
 int NetworkSimulator::runOnce() noexcept
 {
-    // Placeholder for a single simulation tick
-    std::cout << "[ethercat_sim] NetworkSimulator tick" << std::endl;
+    // Periodic processing: update logical memory from mapped inputs
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        for (auto it = input_maps_.begin(); it != input_maps_.end(); ) {
+            if (auto s = it->slave.lock()) {
+                uint32_t bits = 0;
+                if (s->readDigitalInputsBitfield(bits)) {
+                    for (std::size_t i = 0; i < it->width_bytes; ++i) {
+                        if ((it->logical_address + i) < logical_.size()) {
+                            logical_[it->logical_address + i] = static_cast<uint8_t>((bits >> (8*i)) & 0xFF);
+                        }
+                    }
+                }
+                ++it;
+            } else {
+                it = input_maps_.erase(it);
+            }
+        }
+    }
     return 0;
 }
 
@@ -188,6 +205,20 @@ bool NetworkSimulator::readLogical(std::uint32_t logical_address, std::uint8_t* 
     }
     std::copy(logical_.begin() + logical_address, logical_.begin() + logical_address + len, out);
     return true;
+}
+
+void NetworkSimulator::mapDigitalInputs(const std::shared_ptr<VirtualSlave>& slave,
+                                        std::uint32_t logical_address,
+                                        std::size_t width_bytes) noexcept
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    input_maps_.push_back(InputMap{slave, logical_address, width_bytes});
+}
+
+void NetworkSimulator::clearInputMappings() noexcept
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    input_maps_.clear();
 }
 
 } // namespace ethercat_sim::simulation

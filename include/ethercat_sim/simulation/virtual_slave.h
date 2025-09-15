@@ -149,6 +149,9 @@ protected:
     // Allow derived classes (specific slaves) to answer SDO Upload values
     virtual bool onSdoUpload(uint16_t /*index*/, uint8_t /*subindex*/, uint32_t& /*value*/) const noexcept { return false; }
 
+    // Optional: return digital inputs bitfield for PDO mapping (LSB=channel0)
+    virtual bool readDigitalInputsBitfield(uint32_t& /*bits_out*/) const noexcept { return false; }
+
 private:
 
     void syncCoreRegisters_() noexcept

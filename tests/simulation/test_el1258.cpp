@@ -73,3 +73,35 @@ TEST(EL1258, DI_States_PowerAndButton)
     EXPECT_EQ(v, 0u);
 }
 
+TEST(EL1258, PDO_Mapping_To_LogicalMemory)
+{
+    NetworkSimulator sim;
+    sim.initialize();
+    sim.clearSlaves();
+
+    auto el = std::make_shared<EL1258Slave>(1);
+    el->setPower(false);
+    el->setPowerButton(false);
+    sim.addVirtualSlave(el);
+
+    // Map DI bitfield to logical address 0x0000, 1 byte
+    sim.mapDigitalInputs(el, /*logical*/0x0000, /*width_bytes*/1);
+
+    // Initial: all zero
+    sim.runOnce();
+    uint8_t byte = 0xFF;
+    ASSERT_TRUE(sim.readLogical(0x0000, &byte, 1));
+    EXPECT_EQ(byte, 0x00);
+
+    // Power on => DI1 set
+    el->setPower(true);
+    sim.runOnce();
+    ASSERT_TRUE(sim.readLogical(0x0000, &byte, 1));
+    EXPECT_EQ(byte & 0x02, 0x02);
+
+    // Power button => DI0 set
+    el->setPowerButton(true);
+    sim.runOnce();
+    ASSERT_TRUE(sim.readLogical(0x0000, &byte, 1));
+    EXPECT_EQ(byte & 0x01, 0x01);
+}
