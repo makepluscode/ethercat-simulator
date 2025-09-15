@@ -139,4 +139,17 @@ if(HAVE_FASTDDS)
     )
     include(GoogleTest)
     gtest_discover_tests(test_dds_text_pubsub)
+
+    # Bounds/truncation behavior when message exceeds TEXTMSG_MAX_LEN
+    add_executable(test_dds_text_bounds
+        dds/test_text_msg_bounds.cpp
+    )
+    target_link_libraries(test_dds_text_bounds
+        PRIVATE
+            ethercat_dds
+            fastdds
+            GTest::gtest
+            GTest::gtest_main
+    )
+    gtest_discover_tests(test_dds_text_bounds)
 endif()
