@@ -112,3 +112,19 @@ if(HAVE_KICKCAT)
     )
     gtest_discover_tests(test_kickcat_apr_lr)
 endif()
+
+# DDS pub/sub test (FastDDS + Shared Memory only)
+if(HAVE_FASTDDS)
+    add_executable(test_dds_text_pubsub
+        dds/test_text_msg_pubsub.cpp
+    )
+    target_link_libraries(test_dds_text_pubsub
+        PRIVATE
+            ethercat_dds
+            fastdds
+            GTest::gtest
+            GTest::gtest_main
+    )
+    include(GoogleTest)
+    gtest_discover_tests(test_dds_text_pubsub)
+endif()
