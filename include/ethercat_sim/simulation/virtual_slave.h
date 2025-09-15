@@ -161,24 +161,32 @@ public:
                 al_status_code_ = 0; // OK
                 syncCoreRegisters_();
             } else {
-                // 전이 실패: 구성 불완전. 표준 코드를 쓰지 않고 0x0011과 비슷한 사용자 코드 사용.
-                // (테스트는 코드값에 의존하지 않음)
-                al_status_code_ = 0x0001;
-                // 상태는 변경하지 않음
+                // Set specific error code for SAFE_OP/OPERATIONAL gating
+                if (target == ::kickcat::State::SAFE_OP || target == ::kickcat::State::OPERATIONAL) {
+                    al_status_code_ = 0x0011; // Inputs not mapped
+                } else {
+                    al_status_code_ = 0x0001; // Unspecified error
+                }
+                // Do not change al_state_ (remains INIT)
+                syncCoreRegisters_();
             }
         }
         return true;
     }
+
+    // Optional: return digital inputs bitfield for PDO mapping (LSB=channel0)
+    virtual bool readDigitalInputsBitfield(uint32_t& /*bits_out*/) const noexcept { return false; }
+
+    // Make these public for access from NetworkSimulator
+    void setInputPDOMapped(bool v) noexcept { input_pdo_mapped_ = v; }
+    bool inputPDOMapped() const noexcept { return input_pdo_mapped_; }
 
 protected:
     // Allow derived classes (specific slaves) to answer SDO Upload values
     virtual bool onSdoUpload(uint16_t /*index*/, uint8_t /*subindex*/, uint32_t& /*value*/) const noexcept { return false; }
 
     // Optional: return digital inputs bitfield for PDO mapping (LSB=channel0)
-    virtual bool readDigitalInputsBitfield(uint32_t& /*bits_out*/) const noexcept { return false; }
-
-    void setInputPDOMapped(bool v) noexcept { input_pdo_mapped_ = v; }
-    bool inputPDOMapped() const noexcept { return input_pdo_mapped_; }
+    virtual bool atus(uint32_t& /*bits_out*/) const noexcept { return false; }
 
 private:
 
