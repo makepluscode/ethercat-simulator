@@ -271,3 +271,36 @@ TEST(EL1258, Debounce_Global_SDO)
     ASSERT_TRUE(sdo_upload(sim, 1, 0x6000, 1, v));
     EXPECT_EQ(v, 1u);
 }
+
+TEST(EL1258, CoE_Basic_Info)
+{
+    NetworkSimulator sim;
+    sim.initialize();
+    sim.clearSlaves();
+
+    auto el = std::make_shared<EL1258Slave>(1);
+    sim.addVirtualSlave(el);
+
+    uint32_t v = 0;
+    // 0x1000:00 Device Type (minimal, 0)
+    ASSERT_TRUE(sdo_upload(sim, 1, 0x1000, 0x00, v));
+    EXPECT_EQ(v, 0u);
+
+    // 0x1008:00 Device Name (first 4 chars)
+    ASSERT_TRUE(sdo_upload(sim, 1, 0x1008, 0x00, v));
+    char name4[5] = {0};
+    std::memcpy(name4, &v, 4);
+    EXPECT_STREQ(name4, "EL12");
+
+    // 0x1009:00 Hardware version "HW10"
+    ASSERT_TRUE(sdo_upload(sim, 1, 0x1009, 0x00, v));
+    char hw4[5] = {0};
+    std::memcpy(hw4, &v, 4);
+    EXPECT_STREQ(hw4, "HW10");
+
+    // 0x100A:00 Software version "SW10"
+    ASSERT_TRUE(sdo_upload(sim, 1, 0x100A, 0x00, v));
+    char sw4[5] = {0};
+    std::memcpy(sw4, &v, 4);
+    EXPECT_STREQ(sw4, "SW10");
+}

@@ -51,6 +51,23 @@ protected:
     // CoE SDO Upload hook
     bool onSdoUpload(uint16_t index, uint8_t subindex, uint32_t& value) const noexcept override
     {
+        // Basic device information (minimal, 4-byte expedited only)
+        if (index == 0x1000 && subindex == 0x00) {
+            value = device_type_code_;
+            return true;
+        }
+        if (index == 0x1008 && subindex == 0x00) {
+            value = pack4_(device_name_);
+            return true;
+        }
+        if (index == 0x1009 && subindex == 0x00) {
+            value = pack4_(hardware_version_);
+            return true;
+        }
+        if (index == 0x100A && subindex == 0x00) {
+            value = pack4_(software_version_);
+            return true;
+        }
         // 0x6000: Digital Inputs, subindex 1..8 -> boolean
         if (index == 0x6000 && subindex >= 1 && subindex <= 8) {
             value = effectiveBit_(subindex - 1) ? 1u : 0u;
@@ -186,6 +203,22 @@ private:
         for (int i = 0; i < 8; ++i) bits |= (effectiveBit_(i) ? (1u << i) : 0u);
         return bits;
     }
+
+    // Pack first 4 characters into a 32-bit value (expedited SDO simplification)
+    uint32_t pack4_(const char* s) const noexcept
+    {
+        char buf[4] = {0,0,0,0};
+        for (int i = 0; i < 4 && s && s[i]; ++i) buf[i] = s[i];
+        uint32_t v = 0;
+        std::memcpy(&v, buf, sizeof(v));
+        return v;
+    }
+
+    // Minimal identification strings (truncated to 4 bytes in expedited SDO)
+    static constexpr uint32_t device_type_code_ = 0x00000000u;
+    static constexpr const char* device_name_ = "EL1258";
+    static constexpr const char* hardware_version_ = "HW10";
+    static constexpr const char* software_version_ = "SW10";
 };
 
 } // namespace ethercat_sim::simulation::slaves
