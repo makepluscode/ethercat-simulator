@@ -18,11 +18,17 @@ int main(int argc, char** argv)
 
     eprosima::fastdds::dds::TypeSupport type(new TextMsgPubSubType());
     auto* factory = eprosima::fastdds::dds::DomainParticipantFactory::get_instance();
-    // Use SHM-only transport to work in restricted/no-network envs
+    // Prefer SHM-only transport; if not permitted, fall back to builtin (UDP)
     eprosima::fastdds::dds::DomainParticipantQos qos = eprosima::fastdds::dds::PARTICIPANT_QOS_DEFAULT;
     qos.transport().use_builtin_transports = false;
     qos.transport().user_transports.push_back(std::make_shared<eprosima::fastdds::rtps::SharedMemTransportDescriptor>());
     auto* participant = factory->create_participant(0, qos);
+    if (!participant) {
+        std::cerr << "SHM transport unavailable; falling back to builtin UDP" << std::endl;
+        eprosima::fastdds::dds::DomainParticipantQos qos_fallback = eprosima::fastdds::dds::PARTICIPANT_QOS_DEFAULT;
+        qos_fallback.transport().use_builtin_transports = true; // UDPv4 defaults
+        participant = factory->create_participant(0, qos_fallback);
+    }
     if (!participant) { std::cerr << "participant create failed" << std::endl; return 1; }
     type.register_type(participant);
 
