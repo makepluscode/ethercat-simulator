@@ -156,15 +156,20 @@ bool SlaveEndpoint::handleClient_(int fd)
 void SlaveEndpoint::processFrame_(uint8_t* frame, int32_t frame_size)
 {
     ::kickcat::Frame f(frame, frame_size);
+    static bool dbg = []{ const char* e = std::getenv("EC_DEBUG"); return e && *e; }();
     while (true) {
         auto [hdr, data, wkc] = f.peekDatagram();
         if (hdr == nullptr) break;
 
         uint16_t ack = 0;
         switch (hdr->command) {
+            case ::kickcat::Command::NOP: {
+                ack = 0; if (dbg) { std::cerr << "[a-slaves][DBG] NOP" << std::endl; } break;
+            }
             case ::kickcat::Command::BRD: {
                 auto n = static_cast<uint16_t>(sim_->onlineSlaveCount());
                 ack = (n == 0) ? 1 : n; // ensure >0 to help initial detection
+                if (dbg) { std::cerr << "[a-slaves][DBG] BRD len=" << hdr->len << " wkc->" << ack << " online=" << sim_->onlineSlaveCount() << std::endl; }
                 break;
             }
             case ::kickcat::Command::BWR:
@@ -187,7 +192,7 @@ void SlaveEndpoint::processFrame_(uint8_t* frame, int32_t frame_size)
                 bool ok = false;
                 if (hdr->command == ::kickcat::Command::FPRD) ok = sim_->readFromSlave(adp, ado, data, hdr->len);
                 else ok = sim_->writeToSlave(adp, ado, data, hdr->len);
-                ack = ok ? 1 : 0; break;
+                ack = ok ? 1 : 0; if (dbg) { std::cerr << "[a-slaves][DBG] FPRD/FPWR/FPRW adp=" << adp << " ado=0x" << std::hex << ado << std::dec << " ok=" << ok << " wkc=" << ack << std::endl; } break;
             }
             case ::kickcat::Command::APRD:
             case ::kickcat::Command::APWR:
@@ -197,7 +202,7 @@ void SlaveEndpoint::processFrame_(uint8_t* frame, int32_t frame_size)
                 bool ok = false;
                 if (hdr->command == ::kickcat::Command::APRD) ok = sim_->readFromSlaveByIndex(idx, ado, data, hdr->len);
                 else ok = sim_->writeToSlaveByIndex(idx, ado, data, hdr->len);
-                ack = ok ? 1 : 0; break;
+                ack = ok ? 1 : 0; if (dbg) { std::cerr << "[a-slaves][DBG] APRD/APWR/APRW idx=" << idx << " ado=0x" << std::hex << ado << std::dec << " ok=" << ok << " wkc=" << ack << std::endl; } break;
             }
             case ::kickcat::Command::LRD:
             case ::kickcat::Command::LWR:
@@ -205,15 +210,16 @@ void SlaveEndpoint::processFrame_(uint8_t* frame, int32_t frame_size)
                 uint32_t logical = hdr->address; bool ok = false;
                 if (hdr->command == ::kickcat::Command::LRD) ok = sim_->readLogical(logical, data, hdr->len);
                 else ok = sim_->writeLogical(logical, data, hdr->len);
-                ack = ok ? 1 : 0; break;
+                ack = ok ? 1 : 0; if (dbg) { std::cerr << "[a-slaves][DBG] LRD/LWR/LRW logical=0x" << std::hex << logical << std::dec << " len=" << hdr->len << " ok=" << ok << " wkc=" << ack << std::endl; } break;
             }
             case ::kickcat::Command::ARMW:
             case ::kickcat::Command::FRMW: {
                 auto n = static_cast<uint16_t>(sim_->onlineSlaveCount());
-                ack = (n == 0) ? 1 : n; break;
+                ack = (n == 0) ? 1 : n; if (dbg) { std::cerr << "[a-slaves][DBG] ARMW/FRMW wkc->" << ack << std::endl; } break;
             }
-            default:
-                ack = (sim_->onlineSlaveCount() > 0) ? 1 : 0; break;
+            default: {
+                ack = (sim_->onlineSlaveCount() > 0) ? 1 : 0; if (dbg) { std::cerr << "[a-slaves][DBG] OTHER cmd=" << (int)hdr->command << " wkc=" << ack << std::endl; } break;
+            }
         }
         if (wkc) { *wkc = ack; }
     }
