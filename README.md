@@ -36,10 +36,10 @@ This builds only `a-master` and `a-slaves` into `build/src/...`.
 Local (UDS):
 ```
 # Terminal 1 (slaves)
-./a-slaves.sh --uds /tmp/ethercat_bus.sock --count 1
+./a-slaves.sh                 # defaults: UDS /tmp/ethercat_bus.sock, count=1
 
 # Terminal 2 (master)
-./a-master.sh --uds /tmp/ethercat_bus.sock
+./a-master.sh                 # defaults: UDS /tmp/ethercat_bus.sock, cycle=1000us
 ```
 Remote (TCP):
 ```

@@ -13,6 +13,7 @@ ENDPOINT="uds:///tmp/ethercat_bus.sock"
 COUNT=1
 BUILD_DIR="${APP_BUILD_DIR:-build}"
 DO_DEBUG=0
+NO_ARGS=1
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -23,6 +24,7 @@ while [[ $# -gt 0 ]]; do
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage; exit 2 ;;
   esac
+  NO_ARGS=0
 done
 
 # Build binary if missing
@@ -67,6 +69,9 @@ shutdown() {
 
 trap shutdown INT TERM TSTP
 
+if [[ ${NO_ARGS} -eq 1 ]]; then
+  echo "[a-slaves.sh] No arguments provided. Using defaults: ${MODE} ${ARG}, count=${COUNT}"
+fi
 echo "[a-slaves.sh] Running: ${BIN} ${MODE} ${ARG} --count ${COUNT}"
 "${BIN}" "${MODE}" "${ARG}" --count "${COUNT}" &
 PID=$!
@@ -87,4 +92,3 @@ fi
 restore_tty
 cleanup_socket
 exit 0
-
