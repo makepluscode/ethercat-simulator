@@ -29,15 +29,17 @@ if(HAVE_KICKCAT)
     target_compile_features(ethercat_kickcat_adapter PUBLIC cxx_std_17)
 endif()
 
-add_library(ethercat_dds STATIC
-    communication/dds_text_type.cpp
-)
-target_include_directories(ethercat_dds
-    PUBLIC
-        ${CMAKE_CURRENT_LIST_DIR}/../include
-)
-target_link_libraries(ethercat_dds
-    PUBLIC
-        fastdds
-)
-target_compile_features(ethercat_dds PUBLIC cxx_std_17)
+if(HAVE_FASTDDS)
+    add_library(ethercat_dds STATIC
+        communication/dds_text_type.cpp
+    )
+    target_include_directories(ethercat_dds
+        PUBLIC
+            ${CMAKE_CURRENT_LIST_DIR}/../include
+    )
+    target_link_libraries(ethercat_dds
+        PUBLIC
+            fastdds
+    )
+    target_compile_features(ethercat_dds PUBLIC cxx_std_17)
+endif()

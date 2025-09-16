@@ -44,7 +44,7 @@ if [[ ${USE_CONAN} -eq 1 ]]; then
   echo "[conan] Detecting profile"
   conan profile detect || true
   echo "[conan] Installing dependencies for ${BUILD_TYPE}"
-  # Enable required options so CMake can find FastDDS and FTXUI
+  # Enable required options so CMake can find dependencies (FastDDS optional)
   conan install . \
     -o ethercat-simulator*:with_fastdds=True \
     -o ethercat-simulator*:with_ftxui=True \
@@ -54,7 +54,10 @@ if [[ ${USE_CONAN} -eq 1 ]]; then
 fi
 
 echo "[cmake] Configuring (${BUILD_TYPE})"
-cmake -S . -B "${BUILD_DIR}" "${cmake_common_flags[@]}"
+cmake -S . -B "${BUILD_DIR}" \
+  -DBUILD_EXAMPLES=OFF -DBUILD_TESTING=OFF \
+  -DBUILD_AMASTER=ON -DBUILD_ASLAVES=ON \
+  "${cmake_common_flags[@]}"
 
 echo "[cmake] Building"
 # Guard against stale nested TUI build directory conflicting with binary name
@@ -62,6 +65,6 @@ if [[ -d "${BUILD_DIR}/tui/tui" ]]; then
   echo "[warn] Removing stale directory that conflicts with TUI binary: ${BUILD_DIR}/tui/tui"
   rm -rf "${BUILD_DIR}/tui/tui"
 fi
-cmake --build "${BUILD_DIR}" -j
+cmake --build "${BUILD_DIR}" -j --target a-master a-slaves
 
-echo "[done] Artifacts in ${BUILD_DIR} (examples in ${BUILD_DIR}/examples)"
+echo "[done] Artifacts in ${BUILD_DIR} (apps in ${BUILD_DIR}/src)"

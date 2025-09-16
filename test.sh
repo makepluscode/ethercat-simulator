@@ -1,11 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BUILD_DIR="build"
+BUILD_DIR="build-tests"
 
 if [[ ! -d "${BUILD_DIR}" ]]; then
-  echo "[error] Build directory '${BUILD_DIR}' not found. Run ./build.sh first." >&2
-  exit 1
+  echo "[setup] Creating test build in '${BUILD_DIR}'"
+  command -v conan >/dev/null 2>&1 || { echo "Conan is required"; exit 1; }
+  export CONAN_HOME="${CONAN_HOME:-$(pwd)/.conan2}"
+  conan profile detect || true
+  conan install . \
+    -o ethercat-simulator*:with_fastdds=True \
+    -o ethercat-simulator*:with_ftxui=True \
+    -c tools.cmake.cmaketoolchain:generator="Unix Makefiles" \
+    -of "${BUILD_DIR}" -s "build_type=Debug" --build=missing
+  cmake -S . -B "${BUILD_DIR}" \
+    -DCMAKE_TOOLCHAIN_FILE=${BUILD_DIR}/conan_toolchain.cmake \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DBUILD_EXAMPLES=ON -DBUILD_TESTING=ON -DBUILD_AMASTER=OFF -DBUILD_ASLAVES=OFF
+  cmake --build "${BUILD_DIR}" -j
 fi
 
 GROUP=""
