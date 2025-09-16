@@ -23,16 +23,52 @@ void run_master_tui(std::shared_ptr<MasterController> controller,
 {
     auto screen = ScreenInteractive::Fullscreen();
 
-    auto renderer = Renderer([&] {
+    int selected = 0;
+    std::string idx_str = "0x6002";
+    std::string sub_str = "0";
+    std::string val_str = "0x0";
+
+    auto idx_input = Input(&idx_str, "index(hex)");
+    auto sub_input = Input(&sub_str, "sub");
+    auto val_input = Input(&val_str, "value(hex)");
+    auto do_read = Button("Read", [&] {
+        unsigned int idx = 0; unsigned int sub = 0; uint32_t value = 0;
+        try { idx = std::stoul(idx_str, nullptr, 0); } catch (...) { idx = 0; }
+        try { sub = std::stoul(sub_str, nullptr, 0); } catch (...) { sub = 0; }
+        controller->sdoUpload(selected, static_cast<uint16_t>(idx), static_cast<uint8_t>(sub), value);
+    });
+    auto do_write = Button("Write", [&] {
+        unsigned int idx = 0; unsigned int sub = 0; unsigned int v = 0;
+        try { idx = std::stoul(idx_str, nullptr, 0); } catch (...) { idx = 0; }
+        try { sub = std::stoul(sub_str, nullptr, 0); } catch (...) { sub = 0; }
+        try { v = std::stoul(val_str, nullptr, 0); } catch (...) { v = 0; }
+        controller->sdoDownload(selected, static_cast<uint16_t>(idx), static_cast<uint8_t>(sub), static_cast<uint32_t>(v));
+    });
+
+    auto inputs = Container::Vertical({ idx_input, sub_input, val_input, do_read, do_write });
+
+    auto renderer = Renderer(inputs, [&] {
         auto snap = model->snapshot();
         auto status = text("status: " + snap.status);
+        if (selected >= static_cast<int>(snap.slaves.size())) selected = static_cast<int>(snap.slaves.size()) - 1;
+        if (selected < 0) selected = 0;
         std::vector<Element> rows;
         rows.push_back(hbox(Elements{ text("Addr") | bold | underlined, text("  "), text("State") | bold | underlined, text("  "), text("AL") | bold | underlined }));
-        for (auto const& r : snap.slaves) {
-            rows.push_back(hbox(Elements{
-                text(std::to_string(r.address)), text("  "), text(r.state), text("  "), text(r.al_code)
-            }));
+        for (size_t i = 0; i < snap.slaves.size(); ++i) {
+            auto const& r = snap.slaves[i];
+            auto line = hbox(Elements{ text(std::to_string(r.address)), text("  "), text(r.state), text("  "), text(r.al_code) });
+            if (static_cast<int>(i) == selected) line = line | inverted;
+            rows.push_back(line);
         }
+        auto sdo_panel = vbox({
+            text("SDO"),
+            hbox({ text("index:"), separator(), idx_input->Render() }),
+            hbox({ text("sub:"),   separator(), sub_input->Render() }),
+            hbox({ text("value:"), separator(), val_input->Render() }),
+            hbox({ do_read->Render(), text("  "), do_write->Render() }),
+            text("last:" + snap.sdo_value_hex),
+            text("result:" + snap.sdo_status),
+        }) | border;
         auto info = vbox({
             text("EtherCAT Master"),
             separator(),
@@ -42,7 +78,9 @@ void run_master_tui(std::shared_ptr<MasterController> controller,
             separator(),
             vbox(std::move(rows)) | frame,
             separator(),
-            text("keys: [s]can  [i]nit  [o]p  [ESC]/[q]uit"),
+            text("keys: [s]can  [i]nit  [o]p  [Up/Down] select  [q]/[ESC] quit"),
+            separator(),
+            hbox({ sdo_panel, filler() }),
             separator(),
             status,
         }) | border;
@@ -54,6 +92,8 @@ void run_master_tui(std::shared_ptr<MasterController> controller,
         if (e == Event::Character('s')) { controller->scan(); return true; }
         if (e == Event::Character('i')) { controller->initPreop(); return true; }
         if (e == Event::Character('o')) { controller->requestOperational(); return true; }
+        if (e == Event::ArrowDown) { selected++; return true; }
+        if (e == Event::ArrowUp) { selected--; if (selected < 0) selected = 0; return true; }
         return false;
     });
 

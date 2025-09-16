@@ -23,6 +23,9 @@ public:
     void scan();
     void initPreop();
     void requestOperational();
+    // SDO operations (expedited)
+    bool sdoUpload(int slave_index, uint16_t index, uint8_t subindex, uint32_t& value);
+    bool sdoDownload(int slave_index, uint16_t index, uint8_t subindex, uint32_t value);
 
     std::shared_ptr<MasterModel> model() { return model_; }
 

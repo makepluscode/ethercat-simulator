@@ -8,6 +8,7 @@
 #include <chrono>
 #include <iostream>
 #include <sstream>
+#include <cstdio>
 
 using namespace std::chrono_literals;
 
@@ -178,6 +179,46 @@ void MasterController::run_()
             model_->setSlaves(std::move(rows));
         } catch (...) { /* ignore */ }
         std::this_thread::sleep_for(period);
+    }
+}
+
+bool MasterController::sdoUpload(int slave_index, uint16_t index, uint8_t subindex, uint32_t& value)
+{
+    try {
+        ensureBus_();
+        auto& vec = bus_->slaves();
+        if (slave_index < 0 || slave_index >= static_cast<int>(vec.size())) {
+            model_->setSdoStatus("invalid slave index");
+            return false;
+        }
+        uint32_t size = sizeof(uint32_t);
+        bus_->readSDO(vec[slave_index], index, subindex, kickcat::Bus::Access::COMPLETE, &value, &size, std::chrono::milliseconds(500));
+        char buf[16];
+        std::snprintf(buf, sizeof(buf), "0x%08X", value);
+        model_->setSdoValueHex(buf);
+        model_->setSdoStatus("read ok");
+        return true;
+    } catch (std::exception const& e) {
+        model_->setSdoStatus(std::string("read err: ") + e.what());
+        return false;
+    }
+}
+
+bool MasterController::sdoDownload(int slave_index, uint16_t index, uint8_t subindex, uint32_t value)
+{
+    try {
+        ensureBus_();
+        auto& vec = bus_->slaves();
+        if (slave_index < 0 || slave_index >= static_cast<int>(vec.size())) {
+            model_->setSdoStatus("invalid slave index");
+            return false;
+        }
+        bus_->writeSDO(vec[slave_index], index, subindex, false, &value, sizeof(uint32_t), std::chrono::milliseconds(500));
+        model_->setSdoStatus("write ok");
+        return true;
+    } catch (std::exception const& e) {
+        model_->setSdoStatus(std::string("write err: ") + e.what());
+        return false;
     }
 }
 

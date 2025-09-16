@@ -18,6 +18,9 @@ struct MasterSnapshot {
     bool operational {false};
     std::string status;
     std::vector<SlaveRow> slaves;
+    int selected_slave {0};
+    std::string sdo_status;
+    std::string sdo_value_hex;
 };
 
 class MasterModel {
@@ -28,6 +31,9 @@ public:
     void setStatus(std::string s) { std::lock_guard<std::mutex> l(m_); snap_.status = std::move(s); }
 
     void setSlaves(std::vector<SlaveRow> rows) { std::lock_guard<std::mutex> l(m_); snap_.slaves = std::move(rows); }
+    void setSelectedSlave(int i) { std::lock_guard<std::mutex> l(m_); snap_.selected_slave = i; }
+    void setSdoStatus(std::string s) { std::lock_guard<std::mutex> l(m_); snap_.sdo_status = std::move(s); }
+    void setSdoValueHex(std::string v) { std::lock_guard<std::mutex> l(m_); snap_.sdo_value_hex = std::move(v); }
     MasterSnapshot snapshot() const { std::lock_guard<std::mutex> l(m_); return snap_; }
 
 private:

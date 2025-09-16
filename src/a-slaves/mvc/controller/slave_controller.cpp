@@ -27,6 +27,7 @@ void SlaveController::run_()
     std::atomic_bool stop_flag{false};
     ep.setStopFlag(&stop_flag);
     ep.setSlaveCount(static_cast<std::size_t>(count_));
+    ep.setConnectionCallback([this](bool connected){ this->model_->setConnected(connected); });
 
     model_->setListening(true);
     // Light integration: the endpoint returns only when stopping; we simulate connected status changes in endpoint in future.
