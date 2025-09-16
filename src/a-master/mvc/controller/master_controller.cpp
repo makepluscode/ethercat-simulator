@@ -3,7 +3,6 @@
 #include "bus/master_socket.h"
 #include "kickcat/Bus.h"
 #include "kickcat/Link.h"
-#include "kickcat/SocketNull.h"
 
 #include <chrono>
 #include <iostream>
@@ -41,8 +40,9 @@ void MasterController::ensureBus_()
     sock_ = std::make_shared<bus::MasterSocket>(endpoint_);
     sock_->open("");
     sock_->setTimeout(200ms);
-    nullRed_ = std::make_shared<kickcat::SocketNull>();
-    link_ = std::make_shared<kickcat::Link>(sock_, nullRed_, []{});
+    // Use the same socket for both nominal and redundancy interfaces
+    // This avoids the WriteThenRead error when using SocketNull
+    link_ = std::make_shared<kickcat::Link>(sock_, sock_, []{});
     link_->setTimeout(200ms);
     bus_ = std::make_unique<kickcat::Bus>(link_);
 }
@@ -83,13 +83,23 @@ void MasterController::initPreop()
 {
     try {
         ensureBus_();
+        std::cout << "[a-master] Calling bus->init()\n";
         bus_->init();
+        std::cout << "[a-master] bus->init() completed\n";
+        
+        // Wait a bit for slaves to process state change
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        
         // refresh snapshot
         std::vector<SlaveRow> rows;
         rows.reserve(bus_->slaves().size());
+        std::cout << "[a-master] Checking " << bus_->slaves().size() << " slaves after init\n";
         for (auto const& s : bus_->slaves()) {
             SlaveRow r;
             r.address = s.address;
+            std::cout << "[a-master] Slave " << s.address << " AL status: 0x" 
+                      << std::hex << static_cast<int>(s.al_status) 
+                      << " code: 0x" << s.al_status_code << std::dec << "\n";
             switch (static_cast<kickcat::State>(s.al_status)) {
                 case kickcat::State::INIT: r.state = "INIT"; break;
                 case kickcat::State::PRE_OP: r.state = "PRE_OP"; break;
@@ -103,10 +113,14 @@ void MasterController::initPreop()
             rows.push_back(std::move(r));
         }
         model_->setSlaves(std::move(rows));
-        model_->setPreop(true);
+        model_->setPreop(bus_->slaves().size() > 0 && bus_->slaves()[0].al_status == static_cast<uint8_t>(kickcat::State::PRE_OP));
         model_->setStatus("preop ok");
     } catch (std::exception const& e) {
+        std::cerr << "[a-master] initPreop exception: " << e.what() << "\n";
         model_->setStatus(std::string("preop err: ") + e.what());
+    } catch (...) {
+        std::cerr << "[a-master] initPreop unknown exception\n";
+        model_->setStatus("preop err: unknown exception");
     }
 }
 
@@ -146,10 +160,9 @@ void MasterController::requestOperational()
 
 void MasterController::run_()
 {
-    // Initial sequence: scan -> preop -> attempt op
-    scan();
-    initPreop();
-    requestOperational();
+    // Removed automatic initial sequence - wait for user to press 's' key
+    // This allows slaves to be ready before scanning
+    model_->setStatus("ready - press 's' to scan");
 
     auto period = std::chrono::microseconds(cycle_us_);
     while (!stop_.load()) {

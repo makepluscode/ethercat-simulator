@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <poll.h>
 #include <fcntl.h>
+#include <cerrno>
 
 #include "kickcat/Frame.h"
 #include "kickcat/protocol.h"
@@ -49,7 +50,10 @@ static bool parse_uds_endpoint(std::string const& ep, std::string& path)
 bool SlaveEndpoint::bindUDS_(const std::string& path)
 {
     listen_fd_ = ::socket(AF_UNIX, SOCK_STREAM, 0);
-    if (listen_fd_ < 0) return false;
+    if (listen_fd_ < 0) {
+        std::cerr << "[a-slaves] Failed to create socket: " << strerror(errno) << "\n";
+        return false;
+    }
 
     sockaddr_un addr{}; addr.sun_family = AF_UNIX;
     std::string disk_path = path;
@@ -67,8 +71,17 @@ bool SlaveEndpoint::bindUDS_(const std::string& path)
         bound_disk_path_ = disk_path;
         len = static_cast<socklen_t>(offsetof(sockaddr_un, sun_path) + std::strlen(addr.sun_path));
     }
-    if (::bind(listen_fd_, reinterpret_cast<sockaddr*>(&addr), len) < 0) return false;
-    if (::listen(listen_fd_, 1) < 0) return false;
+    if (::bind(listen_fd_, reinterpret_cast<sockaddr*>(&addr), len) < 0) {
+        std::cerr << "[a-slaves] Failed to bind socket: " << strerror(errno) << "\n";
+        ::close(listen_fd_);
+        return false;
+    }
+    if (::listen(listen_fd_, 1) < 0) {
+        std::cerr << "[a-slaves] Failed to listen on socket: " << strerror(errno) << "\n";
+        ::close(listen_fd_);
+        return false;
+    }
+    std::cout << "[a-slaves] Socket bound and listening, fd=" << listen_fd_ << "\n";
     return true;
 }
 
@@ -157,6 +170,12 @@ void SlaveEndpoint::processFrame_(uint8_t* frame, int32_t frame_size)
 {
     ::kickcat::Frame f(frame, frame_size);
     static bool dbg = []{ const char* e = std::getenv("EC_DEBUG"); return e && *e; }();
+    
+    // Ensure the ethernet header has the correct EtherCAT type
+    if (f.ethernet()->type != ::kickcat::ETH_ETHERCAT_TYPE) {
+        f.ethernet()->type = ::kickcat::ETH_ETHERCAT_TYPE;
+    }
+    
     while (true) {
         auto [hdr, data, wkc] = f.peekDatagram();
         if (hdr == nullptr) break;
@@ -227,14 +246,23 @@ void SlaveEndpoint::processFrame_(uint8_t* frame, int32_t frame_size)
 
 bool SlaveEndpoint::run()
 {
+    std::cout << "[a-slaves] SlaveEndpoint::run() started with endpoint: " << endpoint_ << "\n";
     std::string path, host; uint16_t port = 0;
     if (parse_uds_endpoint(endpoint_, path)) {
-        if (!bindUDS_(path)) return false;
-        std::cout << "[a-slaves] Listening UDS " << path << "\n";
+        std::cout << "[a-slaves] Parsed UDS endpoint, path: " << path << "\n";
+        if (!bindUDS_(path)) {
+            std::cerr << "[a-slaves] Failed to bind UDS at " << path << "\n";
+            return false;
+        }
+        std::cout << "[a-slaves] Successfully bound and listening UDS " << path << "\n";
     }
     else if (parse_tcp_endpoint(endpoint_, host, port)) {
-        if (!bindTCP_(host, port)) return false;
-        std::cout << "[a-slaves] Listening TCP " << host << ":" << port << "\n";
+        std::cout << "[a-slaves] Parsed TCP endpoint, host: " << host << ", port: " << port << "\n";
+        if (!bindTCP_(host, port)) {
+            std::cerr << "[a-slaves] Failed to bind TCP at " << host << ":" << port << "\n";
+            return false;
+        }
+        std::cout << "[a-slaves] Successfully bound and listening TCP " << host << ":" << port << "\n";
     }
     else {
         std::cerr << "[a-slaves] Unsupported endpoint: " << endpoint_ << "\n";
@@ -242,16 +270,26 @@ bool SlaveEndpoint::run()
     }
 
     // Accept loop with poll to allow graceful stop
+    std::cout << "[a-slaves] Entering accept loop, waiting for connections...\n";
     int fd = -1;
     while (true) {
-        if (stop_ && stop_->load()) { fd = -1; break; }
+        if (stop_ && stop_->load()) { 
+            std::cout << "[a-slaves] Stop requested, exiting accept loop\n";
+            fd = -1; 
+            break; 
+        }
         struct pollfd pfd{listen_fd_, POLLIN, 0};
         int pr = ::poll(&pfd, 1, 200);
-        if (pr < 0) { fd = -1; break; }
+        if (pr < 0) { 
+            std::cerr << "[a-slaves] Poll error: " << strerror(errno) << "\n";
+            fd = -1; 
+            break; 
+        }
         if (pr == 0) continue;
         if (pfd.revents & POLLIN) {
             sockaddr_storage peer{}; socklen_t plen = sizeof(peer);
             fd = ::accept(listen_fd_, reinterpret_cast<sockaddr*>(&peer), &plen);
+            std::cout << "[a-slaves] Accept returned fd=" << fd << "\n";
             break;
         }
     }

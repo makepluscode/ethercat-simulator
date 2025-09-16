@@ -11,6 +11,7 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <iostream>
 
 namespace ethercat_sim::bus {
 
@@ -45,16 +46,21 @@ static bool parse_uds_endpoint(std::string const& ep, std::string& path)
 void MasterSocket::open(std::string const& /*interface*/)
 {
     if (fd_ != -1) return;
+    std::cout << "[a-master] MasterSocket::open() endpoint: " << endpoint_ << "\n";
     std::string path, host; uint16_t port = 0;
     if (parse_uds_endpoint(endpoint_, path)) {
+        std::cout << "[a-master] Connecting to UDS: " << path << "\n";
         if (!connectUDS_(path)) {
             throw std::runtime_error("MasterSocket: UDS connect failed");
         }
+        std::cout << "[a-master] Successfully connected to UDS\n";
     }
     else if (parse_tcp_endpoint(endpoint_, host, port)) {
+        std::cout << "[a-master] Connecting to TCP: " << host << ":" << port << "\n";
         if (!connectTCP_(host, port)) {
             throw std::runtime_error("MasterSocket: TCP connect failed");
         }
+        std::cout << "[a-master] Successfully connected to TCP\n";
     }
     else {
         throw std::invalid_argument("MasterSocket: unsupported endpoint (use uds:// or tcp://)");
@@ -108,7 +114,10 @@ int32_t MasterSocket::read(uint8_t* frame, int32_t frame_size)
 bool MasterSocket::connectUDS_(const std::string& path)
 {
     fd_ = ::socket(AF_UNIX, SOCK_STREAM, 0);
-    if (fd_ < 0) return false;
+    if (fd_ < 0) {
+        std::cerr << "[a-master] Failed to create socket: " << std::strerror(errno) << "\n";
+        return false;
+    }
 
     sockaddr_un addr{};
     addr.sun_family = AF_UNIX;
@@ -124,6 +133,7 @@ bool MasterSocket::connectUDS_(const std::string& path)
         len = static_cast<socklen_t>(offsetof(sockaddr_un, sun_path) + std::strlen(addr.sun_path));
     }
     if (::connect(fd_, reinterpret_cast<sockaddr*>(&addr), len) < 0) {
+        std::cerr << "[a-master] Failed to connect to " << path << ": " << std::strerror(errno) << "\n";
         ::close(fd_); fd_ = -1; return false;
     }
     setTimeout(timeout_);

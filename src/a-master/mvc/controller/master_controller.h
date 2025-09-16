@@ -7,7 +7,7 @@
 
 #include "mvc/model/master_model.h"
 
-namespace kickcat { class Bus; class Link; class SocketNull; }
+namespace kickcat { class Bus; class Link; }
 namespace ethercat_sim { namespace bus { class MasterSocket; } }
 
 namespace ethercat_sim::app::master {
@@ -37,7 +37,6 @@ private:
     int cycle_us_ {1000};
     std::shared_ptr<MasterModel> model_ {std::make_shared<MasterModel>()};
     std::shared_ptr<bus::MasterSocket> sock_;
-    std::shared_ptr<kickcat::SocketNull> nullRed_;
     std::shared_ptr<kickcat::Link> link_;
     std::unique_ptr<kickcat::Bus> bus_;
 

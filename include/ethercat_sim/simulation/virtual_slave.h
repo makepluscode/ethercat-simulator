@@ -5,6 +5,7 @@
 #include <vector>
 #include <algorithm>
 #include <cstring>
+#include <iostream>
 
 #include "kickcat/protocol.h"
 
@@ -38,6 +39,9 @@ public:
 
         syncCoreRegisters_();
         syncSMRegisters_();
+        
+        // Initialize EEPROM with proper data
+        initializeEeprom_();
     }
 
     std::uint16_t address() const noexcept { return address_; }
@@ -58,12 +62,18 @@ public:
         if (reg == ::kickcat::reg::EEPROM_DATA && len >= 4) {
             uint32_t val = 0;
             uint16_t lo = 0, hi = 0;
-            if (eeprom_addr_ + 1 < eeprom_.size()) {
+            if (eeprom_addr_ < eeprom_.size()) {
                 lo = eeprom_[eeprom_addr_];
+            }
+            if (eeprom_addr_ + 1 < eeprom_.size()) {
                 hi = eeprom_[eeprom_addr_ + 1];
             }
             val = static_cast<uint32_t>(lo) | (static_cast<uint32_t>(hi) << 16);
             std::memcpy(dst, &val, sizeof(uint32_t));
+            std::cout << "[slave " << address_ << "] EEPROM read addr=" << eeprom_addr_ 
+                      << " data=0x" << std::hex << val << std::dec << "\n";
+            // Auto-increment for next read
+            eeprom_addr_ += 2;
             return true;
         }
 
@@ -92,8 +102,11 @@ public:
         // Handle EEPROM control write (request)
         if (reg == ::kickcat::reg::EEPROM_CONTROL && len >= 6) {
             // struct { uint16_t command; uint16_t addressLow; uint16_t addressHigh; }
+            uint16_t cmd = static_cast<uint16_t>(src[0] | (static_cast<uint16_t>(src[1]) << 8));
             uint16_t addressLow = static_cast<uint16_t>(src[2] | (static_cast<uint16_t>(src[3]) << 8));
             eeprom_addr_ = addressLow; // words
+            std::cout << "[slave " << address_ << "] EEPROM control write cmd=0x" << std::hex << cmd 
+                      << " addr=0x" << addressLow << std::dec << "\n";
             return true;
         }
 
@@ -136,6 +149,9 @@ public:
         // If AL_CONTROL written, update AL_STATUS accordingly (minimal behavior)
         if (reg == ::kickcat::reg::AL_CONTROL && len >= 1) {
             uint8_t req = regs_[::kickcat::reg::AL_CONTROL];
+            std::cout << "[slave " << address_ << "] AL_CONTROL write: 0x" << std::hex 
+                      << static_cast<int>(req) << " current state: 0x" 
+                      << static_cast<int>(al_state_) << std::dec << "\n";
             req &= static_cast<uint8_t>(~::kickcat::State::ACK);
             auto target = static_cast<::kickcat::State>(req);
             bool allow = false;
@@ -159,11 +175,14 @@ public:
             if (allow) {
                 al_state_ = target;
                 al_status_code_ = 0; // OK
+                std::cout << "[slave " << address_ << "] State changed to: 0x" 
+                          << std::hex << static_cast<int>(al_state_) << std::dec << "\n";
                 syncCoreRegisters_();
             } else {
                 // Set specific error code for SAFE_OP/OPERATIONAL gating
                 if (target == ::kickcat::State::SAFE_OP || target == ::kickcat::State::OPERATIONAL) {
                     al_status_code_ = 0x0011; // Inputs not mapped
+                    std::cout << "[slave " << address_ << "] State change denied - inputs not mapped\n";
                 } else {
                     al_status_code_ = 0x0001; // Unspecified error
                 }
@@ -191,6 +210,69 @@ protected:
     // (legacy placeholder removed)
 
 private:
+    void initializeEeprom_() noexcept
+    {
+        // Basic EEPROM structure for EtherCAT slave
+        // PDI Control (0x0000-0x0001)
+        eeprom_[0] = 0x0180; // PDI type: 01 (4 Digital I/O), Control: 80
+        eeprom_[1] = 0x0000; // PDI Config
+        
+        // Configured Station Alias (0x0004-0x0005)
+        eeprom_[4] = 0x0000; // Station alias
+        eeprom_[5] = 0x0000;
+        
+        // Checksum placeholder (0x0007)
+        eeprom_[7] = 0x0000;
+        
+        // Vendor ID (0x0008-0x0009)
+        eeprom_[8] = static_cast<uint16_t>(vendor_id_ & 0xFFFF);
+        eeprom_[9] = static_cast<uint16_t>((vendor_id_ >> 16) & 0xFFFF);
+        
+        // Product Code (0x000A-0x000B)
+        eeprom_[10] = static_cast<uint16_t>(product_code_ & 0xFFFF);
+        eeprom_[11] = static_cast<uint16_t>((product_code_ >> 16) & 0xFFFF);
+        
+        // Revision Number (0x000C-0x000D)
+        eeprom_[12] = 0x0001; // Rev 1
+        eeprom_[13] = 0x0000;
+        
+        // Serial Number (0x000E-0x000F)
+        eeprom_[14] = 0x0001;
+        eeprom_[15] = 0x0000;
+        
+        // Bootstrap receive/send mailbox (0x0014-0x001B)
+        eeprom_[0x14] = 0x0000; // RxMbxOffset low
+        eeprom_[0x15] = 0x0010; // RxMbxOffset high (0x1000)
+        eeprom_[0x16] = 0x0200; // RxMbxSize (512 bytes)
+        eeprom_[0x17] = 0x0000;
+        eeprom_[0x18] = 0x0000; // TxMbxOffset low  
+        eeprom_[0x19] = 0x0012; // TxMbxOffset high (0x1200)
+        eeprom_[0x1A] = 0x0200; // TxMbxSize (512 bytes)
+        eeprom_[0x1B] = 0x0000;
+        
+        // Standard receive/send mailbox (0x001C-0x0023)
+        eeprom_[0x1C] = 0x0000; // RxMbxOffset low
+        eeprom_[0x1D] = 0x0010; // RxMbxOffset high (0x1000)
+        eeprom_[0x1E] = 0x0200; // RxMbxSize
+        eeprom_[0x1F] = 0x0000;
+        eeprom_[0x20] = 0x0000; // TxMbxOffset low
+        eeprom_[0x21] = 0x0012; // TxMbxOffset high (0x1200)
+        eeprom_[0x22] = 0x0200; // TxMbxSize
+        eeprom_[0x23] = 0x0000;
+        
+        // Mailbox Protocol (0x0024)
+        eeprom_[0x24] = 0x0004; // CoE supported
+        
+        // Size (0x002E-0x002F) - EEPROM size in KB
+        eeprom_[0x2E] = 0x0001; // 1KB EEPROM
+        eeprom_[0x2F] = 0x0000;
+        
+        // Version (0x0030)
+        eeprom_[0x30] = 0x0001; // Version 1
+        
+        // End marker
+        eeprom_[0x60] = 0xFFFF; // End category
+    }
 
     void syncCoreRegisters_() noexcept
     {
@@ -328,16 +410,8 @@ private:
     std::vector<std::uint8_t> mb_in_;
 
     // EEPROM / SII minimal stub
-    uint16_t eeprom_addr_ {0}; // word address for next read
-    std::vector<uint16_t> eeprom_ = []{
-        std::vector<uint16_t> v(128, 0);
-        // Ensure End category (0xFFFF) appears after 32 double-words
-        // so Bus::fetchEeprom() can stop
-        if (v.size() > 66) {
-            v[65] = 0xFFFF; // upper 16-bits at pos=64
-        }
-        return v;
-    }();
+    mutable uint16_t eeprom_addr_ {0}; // word address for next read
+    std::vector<uint16_t> eeprom_ = std::vector<uint16_t>(128, 0);
 };
 
 } // namespace ethercat_sim::simulation
