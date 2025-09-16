@@ -44,44 +44,8 @@ else
   echo "[error] Unsupported endpoint: ${ENDPOINT}" >&2; exit 2
 fi
 
-restore_tty() {
-  if [[ -n "${_OLD_STTY:-}" ]]; then stty "${_OLD_STTY}" || true; fi
-}
-
-shutdown() {
-  echo
-  echo "[a-master.sh] Stopping..."
-  if [[ -n "${PID:-}" ]] && kill -0 "${PID}" 2>/dev/null; then
-    kill -TERM "${PID}" 2>/dev/null || true
-    wait "${PID}" 2>/dev/null || true
-  fi
-  restore_tty
-  echo "[a-master.sh] Done."
-  exit 0
-}
-
-trap shutdown INT TERM TSTP
-
 if [[ ${NO_ARGS} -eq 1 ]]; then
   echo "[a-master.sh] No arguments provided. Using defaults: ${MODE} ${ARG}, cycle=${CYCLE}"
 fi
 echo "[a-master.sh] Running: ${BIN} ${MODE} ${ARG} --cycle ${CYCLE}"
-"${BIN}" "${MODE}" "${ARG}" --cycle "${CYCLE}" &
-PID=$!
-
-# Non-blocking ESC watcher (TTY only)
-if [[ -t 0 ]]; then
-  _OLD_STTY=$(stty -g || true)
-  stty -echo -icanon time 0 min 0 || true
-  while kill -0 "${PID}" 2>/dev/null; do
-    if read -r -s -n 1 -t 0.2 key; then
-      if [[ "${key}" == $'\e' ]]; then shutdown; fi
-    fi
-  done
-else
-  # Non-tty: just wait for process
-  wait "${PID}"
-fi
-
-restore_tty
-exit 0
+exec "${BIN}" "${MODE}" "${ARG}" --cycle "${CYCLE}"
