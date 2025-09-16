@@ -40,10 +40,10 @@ void MasterController::ensureBus_()
     if (bus_) return;
     sock_ = std::make_shared<bus::MasterSocket>(endpoint_);
     sock_->open("");
-    sock_->setTimeout(5ms);
+    sock_->setTimeout(200ms);
     nullRed_ = std::make_shared<kickcat::SocketNull>();
     link_ = std::make_shared<kickcat::Link>(sock_, nullRed_, []{});
-    link_->setTimeout(5ms);
+    link_->setTimeout(200ms);
     bus_ = std::make_unique<kickcat::Bus>(link_);
 }
 
