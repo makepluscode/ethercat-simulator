@@ -7,6 +7,7 @@
 
 #include <chrono>
 #include <iostream>
+#include <sstream>
 
 using namespace std::chrono_literals;
 
@@ -51,6 +52,26 @@ void MasterController::scan()
         ensureBus_();
         int32_t n = bus_->detectSlaves();
         model_->setDetectedSlaves(n);
+        // snapshot slaves
+        std::vector<SlaveRow> rows;
+        rows.reserve(bus_->slaves().size());
+        for (auto const& s : bus_->slaves()) {
+            SlaveRow r;
+            r.address = s.address;
+            // Map state to text
+            switch (static_cast<kickcat::State>(s.al_status)) {
+                case kickcat::State::INIT: r.state = "INIT"; break;
+                case kickcat::State::PRE_OP: r.state = "PRE_OP"; break;
+                case kickcat::State::BOOT: r.state = "BOOT"; break;
+                case kickcat::State::SAFE_OP: r.state = "SAFE_OP"; break;
+                case kickcat::State::OPERATIONAL: r.state = "OP"; break;
+                default: r.state = "INVALID"; break;
+            }
+            std::ostringstream oss; oss << "0x" << std::hex << std::uppercase << s.al_status_code;
+            r.al_code = oss.str();
+            rows.push_back(std::move(r));
+        }
+        model_->setSlaves(std::move(rows));
         model_->setStatus("scan ok");
     } catch (std::exception const& e) {
         model_->setStatus(std::string("scan err: ") + e.what());
@@ -62,6 +83,25 @@ void MasterController::initPreop()
     try {
         ensureBus_();
         bus_->init();
+        // refresh snapshot
+        std::vector<SlaveRow> rows;
+        rows.reserve(bus_->slaves().size());
+        for (auto const& s : bus_->slaves()) {
+            SlaveRow r;
+            r.address = s.address;
+            switch (static_cast<kickcat::State>(s.al_status)) {
+                case kickcat::State::INIT: r.state = "INIT"; break;
+                case kickcat::State::PRE_OP: r.state = "PRE_OP"; break;
+                case kickcat::State::BOOT: r.state = "BOOT"; break;
+                case kickcat::State::SAFE_OP: r.state = "SAFE_OP"; break;
+                case kickcat::State::OPERATIONAL: r.state = "OP"; break;
+                default: r.state = "INVALID"; break;
+            }
+            std::ostringstream oss; oss << "0x" << std::hex << std::uppercase << s.al_status_code;
+            r.al_code = oss.str();
+            rows.push_back(std::move(r));
+        }
+        model_->setSlaves(std::move(rows));
         model_->setPreop(true);
         model_->setStatus("preop ok");
     } catch (std::exception const& e) {
@@ -77,6 +117,25 @@ void MasterController::requestOperational()
         bus_->createMapping(iomap.data());
         bus_->requestState(kickcat::State::OPERATIONAL);
         bus_->waitForState(kickcat::State::OPERATIONAL, 500ms, [&]{ bus_->processDataReadWrite([](auto const&){}); });
+        // refresh snapshot
+        std::vector<SlaveRow> rows;
+        rows.reserve(bus_->slaves().size());
+        for (auto const& s : bus_->slaves()) {
+            SlaveRow r;
+            r.address = s.address;
+            switch (static_cast<kickcat::State>(s.al_status)) {
+                case kickcat::State::INIT: r.state = "INIT"; break;
+                case kickcat::State::PRE_OP: r.state = "PRE_OP"; break;
+                case kickcat::State::BOOT: r.state = "BOOT"; break;
+                case kickcat::State::SAFE_OP: r.state = "SAFE_OP"; break;
+                case kickcat::State::OPERATIONAL: r.state = "OP"; break;
+                default: r.state = "INVALID"; break;
+            }
+            std::ostringstream oss; oss << "0x" << std::hex << std::uppercase << s.al_status_code;
+            r.al_code = oss.str();
+            rows.push_back(std::move(r));
+        }
+        model_->setSlaves(std::move(rows));
         model_->setOperational(true);
         model_->setStatus("op ok");
     } catch (std::exception const& e) {
@@ -98,6 +157,25 @@ void MasterController::run_()
             bus_->sendNop([](auto const&){});
             bus_->finalizeDatagrams();
             bus_->processAwaitingFrames();
+            // periodic refresh of states (lightweight)
+            std::vector<SlaveRow> rows;
+            rows.reserve(bus_->slaves().size());
+            for (auto const& s : bus_->slaves()) {
+                SlaveRow r;
+                r.address = s.address;
+            switch (static_cast<kickcat::State>(s.al_status)) {
+                case kickcat::State::INIT: r.state = "INIT"; break;
+                case kickcat::State::PRE_OP: r.state = "PRE_OP"; break;
+                case kickcat::State::BOOT: r.state = "BOOT"; break;
+                case kickcat::State::SAFE_OP: r.state = "SAFE_OP"; break;
+                case kickcat::State::OPERATIONAL: r.state = "OP"; break;
+                default: r.state = "INVALID"; break;
+            }
+                std::ostringstream oss; oss << "0x" << std::hex << std::uppercase << s.al_status_code;
+                r.al_code = oss.str();
+                rows.push_back(std::move(r));
+            }
+            model_->setSlaves(std::move(rows));
         } catch (...) { /* ignore */ }
         std::this_thread::sleep_for(period);
     }

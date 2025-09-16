@@ -26,12 +26,21 @@ void run_master_tui(std::shared_ptr<MasterController> controller,
     auto renderer = Renderer([&] {
         auto snap = model->snapshot();
         auto status = text("status: " + snap.status);
+        std::vector<Element> rows;
+        rows.push_back(hbox(Elements{ text("Addr") | bold | underlined, text("  "), text("State") | bold | underlined, text("  "), text("AL") | bold | underlined }));
+        for (auto const& r : snap.slaves) {
+            rows.push_back(hbox(Elements{
+                text(std::to_string(r.address)), text("  "), text(r.state), text("  "), text(r.al_code)
+            }));
+        }
         auto info = vbox({
             text("EtherCAT Master"),
             separator(),
             text("slaves: " + std::to_string(snap.detected_slaves)),
             text(std::string("PREOP: ") + (snap.preop ? "yes" : "no")),
             text(std::string("OP: ") + (snap.operational ? "yes" : "no")),
+            separator(),
+            vbox(std::move(rows)) | frame,
             separator(),
             text("keys: [s]can  [i]nit  [o]p  [ESC]/[q]uit"),
             separator(),
