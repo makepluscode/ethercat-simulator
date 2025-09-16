@@ -162,9 +162,11 @@ void SlaveEndpoint::processFrame_(uint8_t* frame, int32_t frame_size)
 
         uint16_t ack = 0;
         switch (hdr->command) {
-            case ::kickcat::Command::BRD:
-                ack = static_cast<uint16_t>(sim_->onlineSlaveCount());
+            case ::kickcat::Command::BRD: {
+                auto n = static_cast<uint16_t>(sim_->onlineSlaveCount());
+                ack = (n == 0) ? 1 : n; // ensure >0 to help initial detection
                 break;
+            }
             case ::kickcat::Command::BWR:
             case ::kickcat::Command::BRW: {
                 auto [pos, ado] = ::kickcat::extractAddress(hdr->address);
@@ -204,6 +206,11 @@ void SlaveEndpoint::processFrame_(uint8_t* frame, int32_t frame_size)
                 if (hdr->command == ::kickcat::Command::LRD) ok = sim_->readLogical(logical, data, hdr->len);
                 else ok = sim_->writeLogical(logical, data, hdr->len);
                 ack = ok ? 1 : 0; break;
+            }
+            case ::kickcat::Command::ARMW:
+            case ::kickcat::Command::FRMW: {
+                auto n = static_cast<uint16_t>(sim_->onlineSlaveCount());
+                ack = (n == 0) ? 1 : n; break;
             }
             default:
                 ack = (sim_->onlineSlaveCount() > 0) ? 1 : 0; break;
