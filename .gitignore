@@ -1,6 +1,7 @@
 # Build directories
 /build/
 /cmake-build-*/
+build-tests/
 
 # CMake in-source artifacts (avoid in-tree builds)
 CMakeCache.txt
