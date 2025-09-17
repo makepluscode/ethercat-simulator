@@ -56,7 +56,7 @@ fi
 echo "[cmake] Configuring (${BUILD_TYPE})"
 cmake -S . -B "${BUILD_DIR}" \
   -DBUILD_EXAMPLES=OFF -DBUILD_TESTING=OFF \
-  -DBUILD_AMASTER=ON -DBUILD_ASLAVES=ON \
+  -DBUILD_AMAIN=ON -DBUILD_ASUBS=ON \
   "${cmake_common_flags[@]}"
 
 echo "[cmake] Building"
@@ -65,6 +65,6 @@ if [[ -d "${BUILD_DIR}/tui/tui" ]]; then
   echo "[warn] Removing stale directory that conflicts with TUI binary: ${BUILD_DIR}/tui/tui"
   rm -rf "${BUILD_DIR}/tui/tui"
 fi
-cmake --build "${BUILD_DIR}" -j --target a-master a-slaves
+cmake --build "${BUILD_DIR}" -j --target a-main a-subs
 
 echo "[done] Artifacts in ${BUILD_DIR} (apps in ${BUILD_DIR}/src)"

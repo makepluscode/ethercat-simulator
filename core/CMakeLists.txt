@@ -1,5 +1,7 @@
 add_library(ethercat_core STATIC
     simulation/network_simulator.cpp
+    communication/endpoint_parser.cpp
+    communication/socket_factory.cpp
 )
 
 target_include_directories(ethercat_core
@@ -11,6 +13,22 @@ target_compile_features(ethercat_core PUBLIC cxx_std_17)
 target_link_libraries(ethercat_core
     PUBLIC
         kickcat::kickcat
+)
+
+# Framework library
+add_library(ethercat_framework STATIC
+    framework/application/base_application.cpp
+)
+
+target_include_directories(ethercat_framework
+    PUBLIC
+        ${CMAKE_CURRENT_LIST_DIR}/../include
+)
+
+target_compile_features(ethercat_framework PUBLIC cxx_std_17)
+target_link_libraries(ethercat_framework
+    PUBLIC
+        ethercat_core
 )
 
 if(HAVE_KICKCAT)
