@@ -7,9 +7,9 @@
 #include <string>
 #include <thread>
 
-#include "bus/slave_endpoint.h"
-#include "mvc/controller/master_controller.h"
-#include "mvc/model/master_model.h"
+#include "bus/subs_endpoint.h"
+#include "mvc/controller/main_controller.h"
+#include "mvc/model/main_model.h"
 
 using namespace std::chrono_literals;
 
@@ -31,8 +31,8 @@ protected:
         socket_path_ = unique_socket_path();
         endpoint_uri_ = std::string("uds://") + socket_path_;
         stop_flag_.store(false);
-        slave_ = std::make_unique<ethercat_sim::bus::SlaveEndpoint>(endpoint_uri_);
-        slave_->setSlaveCount(1);
+        slave_ = std::make_unique<ethercat_sim::bus::SubsEndpoint>(endpoint_uri_);
+        slave_->setSubsCount(1);
         slave_->setStopFlag(&stop_flag_);
         slave_thread_ = std::thread([this] {
             bool ok = slave_->run();
@@ -59,9 +59,9 @@ protected:
         EXPECT_TRUE(slave_result_.load()) << "Slave endpoint run() returned false";
     }
 
-    std::shared_ptr<ethercat_sim::app::master::MasterController> makeController()
+    std::shared_ptr<ethercat_sim::app::main::MainController> makeController()
     {
-        auto controller = std::make_shared<ethercat_sim::app::master::MasterController>(endpoint_uri_, 1000);
+        auto controller = std::make_shared<ethercat_sim::app::main::MainController>(endpoint_uri_, 1000);
         controller->start();
         std::this_thread::sleep_for(50ms);
         return controller;
@@ -69,7 +69,7 @@ protected:
 
     std::string socket_path_;
     std::string endpoint_uri_;
-    std::unique_ptr<ethercat_sim::bus::SlaveEndpoint> slave_;
+    std::unique_ptr<ethercat_sim::bus::SubsEndpoint> slave_;
     std::thread slave_thread_;
     std::atomic_bool stop_flag_{false};
     std::atomic_bool slave_result_{false};
@@ -83,7 +83,7 @@ TEST_F(MasterSlaveFixture, ScanDetectsSingleSlave)
 
     controller->scan();
     auto snap = controller->model()->snapshot();
-    EXPECT_EQ(1, snap.detected_slaves);
+    EXPECT_EQ(1, snap.detected_subs);
     EXPECT_EQ("scan ok", snap.status);
 
     controller->stop();
@@ -95,7 +95,7 @@ TEST_F(MasterSlaveFixture, InitPreopTransitionsToPreop)
 
     controller->initPreop();
     auto snap = controller->model()->snapshot();
-    EXPECT_EQ(1, snap.detected_slaves);
+    EXPECT_EQ(1, snap.detected_subs);
     EXPECT_TRUE(snap.preop);
     EXPECT_EQ("preop ok", snap.status);
 
