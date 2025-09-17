@@ -3,11 +3,19 @@ set -euo pipefail
 
 usage() {
   cat <<USAGE
-Usage: $(basename "$0") [--uds PATH | --tcp HOST:PORT] [--cycle us] [--debug]
+Usage: $(basename "$0") [test | --uds PATH | --tcp HOST:PORT] [--cycle us] [--debug]
 Defaults: --uds /tmp/ethercat_bus.sock, --cycle 1000
 Press ESC, Ctrl+C, or Ctrl+Z to exit gracefully.
+Use "$(basename "$0") test" to run unit tests (Master/Slave scan scenarios).
 USAGE
 }
+
+if [[ $# -gt 0 && "$1" == "test" ]]; then
+  shift
+  echo "[a-master.sh] Running unit tests (MasterSlaveFixture)..."
+  ./test.sh -R MasterSlaveFixture "$@"
+  exit $?
+fi
 
 ENDPOINT="uds:///tmp/ethercat_bus.sock"
 CYCLE=1000

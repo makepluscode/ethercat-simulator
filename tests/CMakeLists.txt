@@ -136,6 +136,27 @@ target_link_libraries(test_el1258
 )
 gtest_discover_tests(test_el1258 PROPERTIES LABELS "core;slave")
 
+add_executable(test_master_controller
+    master/test_master_controller.cpp
+    ${CMAKE_SOURCE_DIR}/src/a-master/mvc/controller/master_controller.cpp
+    ${CMAKE_SOURCE_DIR}/src/a-master/bus/master_socket.cpp
+    ${CMAKE_SOURCE_DIR}/src/a-slaves/bus/slave_endpoint.cpp
+)
+target_include_directories(test_master_controller
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src/a-master
+        ${CMAKE_SOURCE_DIR}/src/a-slaves
+)
+target_link_libraries(test_master_controller
+    PRIVATE
+        ethercat_core
+        kickcat::kickcat
+        GTest::gtest
+        GTest::gtest_main
+)
+gtest_discover_tests(test_master_controller PROPERTIES LABELS "core;master")
+
 # DDS pub/sub test (FastDDS + Shared Memory only)
 if(HAVE_FASTDDS)
     add_executable(test_dds_text_pubsub

@@ -170,12 +170,12 @@ void SlaveEndpoint::processFrame_(uint8_t* frame, int32_t frame_size)
 {
     ::kickcat::Frame f(frame, frame_size);
     static bool dbg = []{ const char* e = std::getenv("EC_DEBUG"); return e && *e; }();
-    
+
     // Ensure the ethernet header has the correct EtherCAT type
     if (f.ethernet()->type != ::kickcat::ETH_ETHERCAT_TYPE) {
         f.ethernet()->type = ::kickcat::ETH_ETHERCAT_TYPE;
     }
-    
+
     while (true) {
         auto [hdr, data, wkc] = f.peekDatagram();
         if (hdr == nullptr) break;
@@ -202,16 +202,41 @@ void SlaveEndpoint::processFrame_(uint8_t* frame, int32_t frame_size)
                         ++okc;
                     }
                 }
-                ack = okc; break;
+                ack = okc;
+                if (dbg) {
+                    uint16_t value = 0;
+                    if (hdr->len >= 1) {
+                        value = data[0];
+                        if (hdr->len >= 2) {
+                            value |= static_cast<uint16_t>(data[1]) << 8;
+                        }
+                    }
+                    std::cerr << "[a-slaves][DBG] BWR/BRW ado=0x" << std::hex << ado << std::dec
+                              << " len=" << hdr->len << " value=0x" << std::hex << value << std::dec
+                              << " wkc=" << ack << std::endl;
+                }
+                break;
             }
             case ::kickcat::Command::FPRD:
             case ::kickcat::Command::FPWR:
             case ::kickcat::Command::FPRW: {
                 auto [adp, ado] = ::kickcat::extractAddress(hdr->address);
                 bool ok = false;
-                if (hdr->command == ::kickcat::Command::FPRD) ok = sim_->readFromSlave(adp, ado, data, hdr->len);
+                bool is_read = (hdr->command == ::kickcat::Command::FPRD);
+                if (is_read) ok = sim_->readFromSlave(adp, ado, data, hdr->len);
                 else ok = sim_->writeToSlave(adp, ado, data, hdr->len);
-                ack = ok ? 1 : 0; if (dbg) { std::cerr << "[a-slaves][DBG] FPRD/FPWR/FPRW adp=" << adp << " ado=0x" << std::hex << ado << std::dec << " ok=" << ok << " wkc=" << ack << std::endl; } break;
+                ack = ok ? 1 : 0;
+                if (dbg) {
+                    std::cerr << "[a-slaves][DBG] "
+                              << (hdr->command == ::kickcat::Command::FPRD ? "FPRD" : (hdr->command == ::kickcat::Command::FPWR ? "FPWR" : "FPRW"))
+                              << " adp=" << adp << " ado=0x" << std::hex << ado << std::dec
+                              << " ok=" << ok << " wkc=" << ack;
+                    if (ok && is_read && ado == ::kickcat::reg::AL_STATUS && hdr->len >= 1) {
+                        std::cerr << " value=0x" << std::hex << static_cast<int>(data[0]) << std::dec;
+                    }
+                    std::cerr << std::endl;
+                }
+                break;
             }
             case ::kickcat::Command::APRD:
             case ::kickcat::Command::APWR:
@@ -242,6 +267,9 @@ void SlaveEndpoint::processFrame_(uint8_t* frame, int32_t frame_size)
         }
         if (wkc) { *wkc = ack; }
     }
+
+    // Copy the mutated frame (including updated WKC) back to the output buffer
+    std::memcpy(frame, f.data(), static_cast<std::size_t>(frame_size));
 }
 
 bool SlaveEndpoint::run()
@@ -273,17 +301,17 @@ bool SlaveEndpoint::run()
     std::cout << "[a-slaves] Entering accept loop, waiting for connections...\n";
     int fd = -1;
     while (true) {
-        if (stop_ && stop_->load()) { 
+        if (stop_ && stop_->load()) {
             std::cout << "[a-slaves] Stop requested, exiting accept loop\n";
-            fd = -1; 
-            break; 
+            fd = -1;
+            break;
         }
         struct pollfd pfd{listen_fd_, POLLIN, 0};
         int pr = ::poll(&pfd, 1, 200);
-        if (pr < 0) { 
+        if (pr < 0) {
             std::cerr << "[a-slaves] Poll error: " << strerror(errno) << "\n";
-            fd = -1; 
-            break; 
+            fd = -1;
+            break;
         }
         if (pr == 0) continue;
         if (pfd.revents & POLLIN) {

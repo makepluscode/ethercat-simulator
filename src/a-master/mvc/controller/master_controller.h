@@ -4,6 +4,8 @@
 #include <string>
 #include <thread>
 #include <atomic>
+#include <mutex>
+#include <chrono>
 
 #include "mvc/model/master_model.h"
 
@@ -32,6 +34,7 @@ public:
 private:
     void run_();
     void ensureBus_();
+    int32_t detectSlavesWithRetries_(int attempts, std::chrono::milliseconds delay);
 
     std::string endpoint_;
     int cycle_us_ {1000};
@@ -42,6 +45,7 @@ private:
 
     std::thread th_;
     std::atomic_bool stop_{false};
+    std::mutex bus_mutex_;
 };
 
 } // namespace ethercat_sim::app::master

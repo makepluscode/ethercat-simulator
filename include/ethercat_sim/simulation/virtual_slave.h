@@ -148,11 +148,12 @@ public:
         }
         // If AL_CONTROL written, update AL_STATUS accordingly (minimal behavior)
         if (reg == ::kickcat::reg::AL_CONTROL && len >= 1) {
-            uint8_t req = regs_[::kickcat::reg::AL_CONTROL];
+            uint8_t ctrl = regs_[::kickcat::reg::AL_CONTROL];
             std::cout << "[slave " << address_ << "] AL_CONTROL write: 0x" << std::hex 
-                      << static_cast<int>(req) << " current state: 0x" 
+                      << static_cast<int>(ctrl) << " current state: 0x" 
                       << static_cast<int>(al_state_) << std::dec << "\n";
-            req &= static_cast<uint8_t>(~::kickcat::State::ACK);
+            ack_requested_ = (ctrl & static_cast<uint8_t>(::kickcat::State::ACK)) != 0;
+            uint8_t req = static_cast<uint8_t>(ctrl & static_cast<uint8_t>(~::kickcat::State::ACK));
             auto target = static_cast<::kickcat::State>(req);
             bool allow = false;
             switch (target) {
@@ -175,6 +176,7 @@ public:
             if (allow) {
                 al_state_ = target;
                 al_status_code_ = 0; // OK
+                ack_requested_ = false;
                 std::cout << "[slave " << address_ << "] State changed to: 0x" 
                           << std::hex << static_cast<int>(al_state_) << std::dec << "\n";
                 syncCoreRegisters_();
@@ -186,6 +188,7 @@ public:
                 } else {
                     al_status_code_ = 0x0001; // Unspecified error
                 }
+                ack_requested_ = false;
                 // Do not change al_state_ (remains INIT)
                 syncCoreRegisters_();
             }
@@ -288,7 +291,11 @@ private:
         regs_.at(::kickcat::reg::ESC_DL_STATUS + 1) = static_cast<uint8_t>((dl >> 8) & 0xFF);
 
         // AL_STATUS (0x130): current state in low byte
-        regs_.at(::kickcat::reg::AL_STATUS + 0) = static_cast<uint8_t>(al_state_);
+        uint8_t status = static_cast<uint8_t>(al_state_);
+        if (ack_requested_) {
+            status |= static_cast<uint8_t>(::kickcat::State::ACK);
+        }
+        regs_.at(::kickcat::reg::AL_STATUS + 0) = status;
         regs_.at(::kickcat::reg::AL_STATUS + 1) = 0u;
 
         // AL_STATUS_CODE (0x134): 0 => no error
@@ -399,6 +406,7 @@ private:
     uint16_t al_status_code_ {0};
     std::vector<std::uint8_t> regs_ = std::vector<std::uint8_t>(4096, 0);
     bool input_pdo_mapped_ {false};
+    bool ack_requested_ {false};
 
     // Mailbox (standard) minimal simulation
     uint16_t mb_recv_offset_ {0};
