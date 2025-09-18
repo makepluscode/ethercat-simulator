@@ -12,8 +12,8 @@ USAGE
 
 if [[ $# -gt 0 && "$1" == "test" ]]; then
   shift
-  echo "[a-master.sh] Running unit tests (MasterSlaveFixture)..."
-  ./test.sh -R MasterSlaveFixture "$@"
+  echo "[a-main.sh] Running unit tests (MainSlaveFixture)..."
+  ./test.sh -R MainSlaveFixture "$@"
   exit $?
 fi
 
@@ -36,7 +36,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Build binary if missing
-BIN="${BUILD_DIR}/src/a-master/a-master"
+BIN="${BUILD_DIR}/src/a-main/a-main"
 if [[ ! -x "${BIN}" ]]; then
   echo "[build] ${BIN} not found. Building apps..."
   if [[ ${DO_DEBUG} -eq 1 ]]; then ./build.sh --debug; else ./build.sh; fi
@@ -53,7 +53,7 @@ else
 fi
 
 if [[ ${NO_ARGS} -eq 1 ]]; then
-  echo "[a-master.sh] No arguments provided. Using defaults: ${MODE} ${ARG}, cycle=${CYCLE}"
+  echo "[a-main.sh] No arguments provided. Using defaults: ${MODE} ${ARG}, cycle=${CYCLE}"
 fi
-echo "[a-master.sh] Running: ${BIN} ${MODE} ${ARG} --cycle ${CYCLE}"
+echo "[a-main.sh] Running: ${BIN} ${MODE} ${ARG} --cycle ${CYCLE}"
 exec "${BIN}" "${MODE}" "${ARG}" --cycle "${CYCLE}"

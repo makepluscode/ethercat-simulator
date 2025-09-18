@@ -36,7 +36,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Build binary if missing
-BIN="${BUILD_DIR}/src/a-slaves/a-slaves"
+BIN="${BUILD_DIR}/src/a-subs/a-subs"
 if [[ ! -x "${BIN}" ]]; then
   echo "[build] ${BIN} not found. Building apps..."
   if [[ ${DO_DEBUG} -eq 1 ]]; then ./build.sh --debug; else ./build.sh; fi
@@ -52,7 +52,7 @@ else
 fi
 
 if [[ ${NO_ARGS} -eq 1 ]]; then
-  echo "[a-slaves.sh] No arguments provided. Using defaults: ${MODE} ${ARG}, count=${COUNT}"
+  echo "[a-subs.sh] No arguments provided. Using defaults: ${MODE} ${ARG}, count=${COUNT}"
 fi
-echo "[a-slaves.sh] Running: ${BIN} ${MODE} ${ARG} --count ${COUNT}"
+echo "[a-subs.sh] Running: ${BIN} ${MODE} ${ARG} --count ${COUNT}"
 exec "${BIN}" "${MODE}" "${ARG}" --count "${COUNT}"
