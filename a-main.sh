@@ -56,4 +56,5 @@ if [[ ${NO_ARGS} -eq 1 ]]; then
   echo "[a-main.sh] No arguments provided. Using defaults: ${MODE} ${ARG}, cycle=${CYCLE}"
 fi
 echo "[a-main.sh] Running: ${BIN} ${MODE} ${ARG} --cycle ${CYCLE}"
-exec "${BIN}" "${MODE}" "${ARG}" --cycle "${CYCLE}"
+echo "[a-main.sh] Logging to a-main.log"
+exec "${BIN}" "${MODE}" "${ARG}" --cycle "${CYCLE}" 2>&1 | tee a-main.log

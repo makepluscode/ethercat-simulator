@@ -53,3 +53,7 @@ lcov.info
 # OS files
 .DS_Store
 Thumbs.db
+
+# Application logs
+a-main.log
+a-subs.log

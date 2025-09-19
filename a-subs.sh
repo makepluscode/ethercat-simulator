@@ -55,4 +55,5 @@ if [[ ${NO_ARGS} -eq 1 ]]; then
   echo "[a-subs.sh] No arguments provided. Using defaults: ${MODE} ${ARG}, count=${COUNT}"
 fi
 echo "[a-subs.sh] Running: ${BIN} ${MODE} ${ARG} --count ${COUNT}"
-exec "${BIN}" "${MODE}" "${ARG}" --count "${COUNT}"
+echo "[a-subs.sh] Logging to a-subs.log"
+exec "${BIN}" "${MODE}" "${ARG}" --count "${COUNT}" 2>&1 | tee a-subs.log

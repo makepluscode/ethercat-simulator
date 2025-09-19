@@ -3,6 +3,7 @@
 #include "bus/main_socket.h"
 #include "kickcat/Bus.h"
 #include "kickcat/Link.h"
+#include "kickcat/DebugHelpers.h"
 
 #include <chrono>
 #include <iostream>
@@ -130,12 +131,37 @@ void MainController::initPreop()
             std::vector<SubsRow> rows;
             rows.reserve(bus_->slaves().size());
             for (auto& s : bus_->slaves()) {
-                s.al_status = static_cast<uint8_t>(kickcat::State::PRE_OP);
-                s.al_status_code = 0;
+                // 실제 슬레이브의 AL_STATUS(0x0130)와 AL_STATUS_CODE(0x0134) 레지스터를 읽어옴
+                uint8_t al_status = 0;
+                uint16_t al_status_code = 0;
+                try {
+                    kickcat::sendGetRegister(*link_, s.address, 0x0130, al_status);
+                    kickcat::sendGetRegister(*link_, s.address, 0x0134, al_status_code);
+                    std::cout << "[a-master] Fallback read AL_STATUS from slave " << s.address 
+                              << ": 0x" << std::hex << static_cast<int>(al_status) 
+                              << " code: 0x" << al_status_code << std::dec << "\n";
+                } catch (...) {
+                    // 레지스터 읽기 실패시 기본값 사용
+                    al_status = static_cast<uint8_t>(kickcat::State::PRE_OP);
+                    al_status_code = 0;
+                    std::cout << "[a-master] Fallback failed to read AL_STATUS from slave " << s.address 
+                              << ", using default: 0x" << std::hex << static_cast<int>(al_status) 
+                              << " code: 0x" << al_status_code << std::dec << "\n";
+                }
+                s.al_status = al_status;
+                s.al_status_code = al_status_code;
                 SubsRow r;
                 r.address = s.address;
-                r.state = "PRE_OP";
-                r.al_code = "0x0";
+                switch (static_cast<kickcat::State>(s.al_status)) {
+                    case kickcat::State::INIT: r.state = "INIT"; break;
+                    case kickcat::State::PRE_OP: r.state = "PRE_OP"; break;
+                    case kickcat::State::BOOT: r.state = "BOOT"; break;
+                    case kickcat::State::SAFE_OP: r.state = "SAFE_OP"; break;
+                    case kickcat::State::OPERATIONAL: r.state = "OP"; break;
+                    default: r.state = "INVALID"; break;
+                }
+                std::ostringstream oss; oss << "0x" << std::hex << std::uppercase << s.al_status_code;
+                r.al_code = oss.str();
                 rows.push_back(std::move(r));
             }
             model_->setSubs(std::move(rows));
@@ -151,13 +177,33 @@ void MainController::initPreop()
         std::vector<SubsRow> rows;
         rows.reserve(bus_->slaves().size());
         std::cout << "[a-master] Checking " << bus_->slaves().size() << " slaves after init\n";
-        for (auto const& s : bus_->slaves()) {
+        for (auto& s : bus_->slaves()) {
+            // 실제 슬레이브의 AL_STATUS(0x0130)와 AL_STATUS_CODE(0x0134) 레지스터를 읽어옴
+            uint8_t al_status = 0;
+            uint16_t al_status_code = 0;
+            try {
+                kickcat::sendGetRegister(*link_, s.address, 0x0130, al_status);
+                kickcat::sendGetRegister(*link_, s.address, 0x0134, al_status_code);
+                s.al_status = al_status;
+                s.al_status_code = al_status_code;
+                std::cout << "[a-master] Read AL_STATUS from slave " << s.address 
+                          << ": 0x" << std::hex << static_cast<int>(al_status) 
+                          << " code: 0x" << al_status_code << std::dec << "\n";
+            } catch (...) {
+                // 레지스터 읽기 실패시 기존 값 유지
+                al_status = s.al_status;
+                al_status_code = s.al_status_code;
+                std::cout << "[a-master] Failed to read AL_STATUS from slave " << s.address 
+                          << ", using cached: 0x" << std::hex << static_cast<int>(al_status) 
+                          << " code: 0x" << al_status_code << std::dec << "\n";
+            }
+            
             SubsRow r;
             r.address = s.address;
             std::cout << "[a-master] Slave " << s.address << " AL status: 0x"
-                      << std::hex << static_cast<int>(s.al_status)
-                      << " code: 0x" << s.al_status_code << std::dec << "\n";
-            switch (static_cast<kickcat::State>(s.al_status)) {
+                      << std::hex << static_cast<int>(al_status)
+                      << " code: 0x" << al_status_code << std::dec << "\n";
+            switch (static_cast<kickcat::State>(al_status)) {
                 case kickcat::State::INIT: r.state = "INIT"; break;
                 case kickcat::State::PRE_OP: r.state = "PRE_OP"; break;
                 case kickcat::State::BOOT: r.state = "BOOT"; break;
@@ -165,7 +211,7 @@ void MainController::initPreop()
                 case kickcat::State::OPERATIONAL: r.state = "OP"; break;
                 default: r.state = "INVALID"; break;
             }
-            std::ostringstream oss; oss << "0x" << std::hex << std::uppercase << s.al_status_code;
+            std::ostringstream oss; oss << "0x" << std::hex << std::uppercase << al_status_code;
             r.al_code = oss.str();
             rows.push_back(std::move(r));
         }
