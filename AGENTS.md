@@ -1,37 +1,29 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- Root build: `CMakeLists.txt`, `conanfile.py`.
-- Core library: `include/`, `core/` (Kickcat adapters, simulator).
-- Apps: `src/a-master/` (EtherCAT master), `src/a-slaves/` (N virtual slaves in one process).
-- Examples/tests: `examples/`, `tests/` (built via `test.sh`).
-- Optional UI: `tui/` (FTXUI), GUI: `gui/desktop/`, `gui/web/`.
+- Core library code lives in `include/` and `core/`, covering Kickcat adapters and the simulator runtime.
+- Applications ship from `src/a-master/` (EtherCAT master) and `src/a-slaves/` (virtual slaves). Examples and tests reside in `examples/` and `tests/`; optional UIs live under `tui/`, `gui/desktop/`, and `gui/web/`.
+- Build tooling sits at the root (`CMakeLists.txt`, `conanfile.py`, helper scripts). Treat new modules as subdirectories with their own CMake targets.
 
 ## Build, Test, and Development Commands
-- Build apps: `./build.sh` (Debug: `--debug`, Clean: `--clean`). Builds `a-master`, `a-slaves` only.
-- Tests/Examples: `./test.sh` (creates `build-tests/`, builds examples + tests, runs CTest).
-- Run slaves: `build/src/a-slaves/a-slaves --uds /tmp/ethercat_bus.sock --count 1`.
-- Run master: `build/src/a-master/a-master --uds /tmp/ethercat_bus.sock`.
-- Remote run: use TCP (`--tcp 0.0.0.0:5510` on slaves; `--tcp host:5510` on master).
- - Graceful exit: press ESC, Ctrl+C, or Ctrl+Z.
+- `./build.sh` builds `a-master` and `a-slaves` (use `--debug` for Debug, `--clean` to reset artifacts).
+- `./test.sh` configures `build-tests/`, compiles all examples and GoogleTests, then runs `ctest`.
+- Runtime basics: `build/src/a-slaves/a-slaves --uds /tmp/ethercat_bus.sock --count 1` and `build/src/a-master/a-master --uds /tmp/ethercat_bus.sock`. For remote sessions, switch to TCP options noted in the scripts.
 
 ## Coding Style & Naming Conventions
-- C++17+, 4-space indent, LF, UTF‑8; prefer RAII/smart pointers; add `noexcept` where sensible.
-- Names: files/namespaces `lower_snake_case`; Types `PascalCase`; methods `camelCase`; constants/macros `UPPER_SNAKE_CASE`.
-- Namespaces: root `ethercat_sim` with modules `simulation`, `communication`, `kickcat`; avoid file‑scope `using namespace`.
-- Formatting: `clang-format` (LLVM, 100 cols). Run `clang-format -i <files>`.
+- C++17+, 4-space indent, LF endings, UTF-8. Prefer RAII and smart pointers; add `noexcept` when practical.
+- Namespaces start at `ethercat_sim` with submodules like `simulation`, `communication`, or `kickcat`; avoid `using namespace` at file scope.
+- Types use `PascalCase`, functions `camelCase`, files and namespaces `lower_snake_case`, constants/macros `UPPER_SNAKE_CASE`.
+- Run `clang-format -i <files>` (LLVM style, 100 columns) before submitting.
 
 ## Testing Guidelines
-- Framework: GoogleTest via CTest; run `ctest --test-dir build-tests --output-on-failure`.
-- Location: `tests/<area>/test_*.cpp`; name tests `SuiteName.MethodName_State_ExpectedBehavior`.
-- Coverage: target ≥80% for core logic/simulation.
+- Tests live in `tests/<area>/test_*.cpp` and use GoogleTest. Name cases `SuiteName.MethodName_State_ExpectedBehavior`.
+- Execute `ctest --test-dir build-tests --output-on-failure`. Target ≥80% coverage for simulation-critical logic; add regression tests when fixing bugs.
 
 ## Commit & Pull Request Guidelines
-- Commits: `type(scope): summary` (e.g., `feat(core): add virtual bus socket`); reference issues like `#123`.
-- PRs: summary, motivation, linked issues, build/test results; add screenshots/logs for GUI/simulation when relevant.
-- Keep diffs focused; update docs/tests when behavior changes.
+- Follow `type(scope): summary` commit messages (e.g., `feat(core): add virtual bus socket`) and reference issues like `#123` when relevant.
+- Pull requests should summarize motivation, list key changes, include build/test evidence, and attach screenshots or logs for UI or simulation output.
 
 ## Security & Configuration Tips
-- Target Linux/WSL. Simulator needs no root; real NIC access may require capabilities.
-- Document any `sysctl`/limits if enabling real‑time.
-- Do not commit secrets; use env vars/local config.
+- Simulator runs unprivileged on Linux/WSL; document any `sysctl` or capability tweaks if you enable real-time behavior.
+- Avoid storing secrets; prefer environment variables or local config files for credentials or tokens.

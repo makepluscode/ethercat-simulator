@@ -3,8 +3,9 @@ set -euo pipefail
 
 usage() {
   cat <<USAGE
-Usage: $(basename "$0") [test | --uds PATH | --tcp HOST:PORT] [--count N] [--debug]
-Defaults: --uds /tmp/ethercat_bus.sock, --count 1
+Usage: $(basename "$0") [tui | test | --uds PATH | --tcp HOST:PORT] [--count N] [--debug] [--headless]
+Defaults: --uds /tmp/ethercat_bus.sock, --count 1, headless mode enabled.
+Use "tui" as the first argument to launch the interactive TUI instead.
 Press ESC, Ctrl+C, or Ctrl+Z to exit gracefully.
 Use "$(basename "$0") test" to run unit tests (Master/Slave scan scenarios).
 USAGE
@@ -21,7 +22,14 @@ ENDPOINT="uds:///tmp/ethercat_bus.sock"
 COUNT=1
 BUILD_DIR="${APP_BUILD_DIR:-build}"
 DO_DEBUG=0
+HEADLESS=1
 NO_ARGS=1
+
+if [[ $# -gt 0 && "$1" == "tui" ]]; then
+  HEADLESS=0
+  NO_ARGS=0
+  shift
+fi
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -29,6 +37,7 @@ while [[ $# -gt 0 ]]; do
     --tcp) ENDPOINT="tcp://$2"; shift 2 ;;
     --count) COUNT="$2"; shift 2 ;;
     --debug) DO_DEBUG=1; shift ;;
+    --headless) HEADLESS=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage; exit 2 ;;
   esac
@@ -45,6 +54,9 @@ fi
 MODE="--uds"; ARG="/tmp/ethercat_bus.sock"
 if [[ "${ENDPOINT}" == uds://* ]]; then
   ARG="${ENDPOINT#uds://}"
+  if [[ -S "${ARG}" ]]; then
+    rm -f "${ARG}"
+  fi
 elif [[ "${ENDPOINT}" == tcp://* ]]; then
   MODE="--tcp"; ARG="${ENDPOINT#tcp://}"
 else
@@ -54,6 +66,10 @@ fi
 if [[ ${NO_ARGS} -eq 1 ]]; then
   echo "[a-subs.sh] No arguments provided. Using defaults: ${MODE} ${ARG}, count=${COUNT}"
 fi
-echo "[a-subs.sh] Running: ${BIN} ${MODE} ${ARG} --count ${COUNT}"
+CMD=("${BIN}" "${MODE}" "${ARG}" "--count" "${COUNT}")
+if [[ ${HEADLESS} -eq 1 ]]; then
+  CMD+=("--headless")
+fi
+echo "[a-subs.sh] Running: ${CMD[*]}"
 echo "[a-subs.sh] Logging to a-subs.log"
-exec "${BIN}" "${MODE}" "${ARG}" --count "${COUNT}" 2>&1 | tee a-subs.log
+exec "${CMD[@]}" 2>&1 | tee a-subs.log

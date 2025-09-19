@@ -1,77 +1,74 @@
+#include <atomic>
+#include <cstdlib>
 #include <iostream>
 #include <string>
-
-#include "bus/subs_endpoint.h"
-#include <atomic>
 #include <thread>
-#include <poll.h>
-#include <termios.h>
 #include <unistd.h>
-#include <csignal>
+
 #include "mvc/controller/subs_controller.h"
 #include "mvc/model/subs_model.h"
 #if HAVE_FTXUI
 #include "mvc/view/subs_tui.h"
 #endif
 
-using ethercat_sim::bus::SubsEndpoint;
+#include "ethercat_sim/app/cli_runtime.h"
 
-static void usage(const char* argv0)
-{
-    std::cerr << "Usage: " << argv0 << " [--uds PATH | --tcp HOST:PORT] [--count N]\n";
+static void usage(const char* argv0) {
+    std::cerr << "Usage: " << argv0 << " [--uds PATH | --tcp HOST:PORT] [--count N] [--headless]\n";
 }
 
-int main(int argc, char** argv)
-{
-    std::string endpoint = "uds:///tmp/ethercat_bus.sock";
-    std::size_t count = 1;
+int main(int argc, char** argv) {
+    std::string endpoint       = "uds:///tmp/ethercat_bus.sock";
+    std::size_t count          = 1;
+    bool        force_headless = false;
 
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
-        if (a == "--uds" && i+1 < argc) { endpoint = std::string("uds://") + argv[++i]; }
-        else if (a == "--tcp" && i+1 < argc) { endpoint = std::string("tcp://") + argv[++i]; }
-        else if (a == "--count" && i+1 < argc) { count = static_cast<std::size_t>(std::stoul(argv[++i])); }
-        else if (a == "-h" || a == "--help") { usage(argv[0]); return 0; }
+        if (a == "--uds" && i + 1 < argc) {
+            endpoint = std::string("uds://") + argv[++i];
+        } else if (a == "--tcp" && i + 1 < argc) {
+            endpoint = std::string("tcp://") + argv[++i];
+        } else if (a == "--count" && i + 1 < argc) {
+            count = static_cast<std::size_t>(std::stoul(argv[++i]));
+        } else if (a == "--headless") {
+            force_headless = true;
+        } else if (a == "-h" || a == "--help") {
+            usage(argv[0]);
+            return 0;
+        }
     }
 
     static std::atomic_bool stop{false};
-    auto on_signal = [](int){ stop.store(true); };
-    struct sigaction sa{}; sa.sa_handler = on_signal; sigemptyset(&sa.sa_mask); sa.sa_flags = 0;
-    sigaction(SIGINT, &sa, nullptr);
-    sigaction(SIGTERM, &sa, nullptr);
-    sigaction(SIGTSTP, &sa, nullptr);
-    std::signal(SIGPIPE, SIG_IGN);
+    ethercat_sim::app::installSignalHandlers(stop);
 
-    auto controller = std::make_shared<ethercat_sim::app::subs::SubsController>(endpoint, static_cast<int>(count));
+    auto controller = std::make_shared<ethercat_sim::app::subs::SubsController>(
+        endpoint, static_cast<int>(count));
     controller->start();
     bool smoke = std::getenv("TUI_SMOKE_TEST") != nullptr;
 #if HAVE_FTXUI
-    if (!smoke && ::isatty(STDIN_FILENO)) {
+    bool interactive = !force_headless && !smoke && ::isatty(STDIN_FILENO);
+#else
+    bool interactive = false;
+#endif
+#if HAVE_FTXUI
+    if (interactive) {
         ethercat_sim::app::subs::run_subs_tui(controller, controller->model(), false);
         stop.store(true);
     } else
 #endif
     {
-        // Headless loop with ESC
-        bool tty = ::isatty(STDIN_FILENO);
-        struct termios oldt{}; bool term_active = false;
-        if (tty && tcgetattr(STDIN_FILENO, &oldt) == 0) {
-            struct termios raw = oldt; cfmakeraw(&raw);
-            raw.c_lflag &= ~(ICANON | ECHO); raw.c_cc[VMIN]=0; raw.c_cc[VTIME]=0;
-            tcsetattr(STDIN_FILENO, TCSANOW, &raw); term_active = true;
-        }
+        ethercat_sim::app::TerminalGuard terminal;
+        using namespace std::chrono_literals;
         while (!stop.load()) {
-            if (tty) {
-                struct pollfd pfd{STDIN_FILENO, POLLIN, 0};
-                int pr = ::poll(&pfd, 1, 200);
-                if (pr > 0 && (pfd.revents & POLLIN)) {
-                    unsigned char ch = 0; if (::read(STDIN_FILENO, &ch, 1) == 1 && ch == 27) { stop.store(true); break; }
+            if (terminal.isActive()) {
+                if (terminal.pollForEscape(200ms)) {
+                    stop.store(true);
+                    break;
                 }
             } else {
-                std::this_thread::sleep_for(std::chrono::milliseconds(200));
+                std::this_thread::sleep_for(200ms);
             }
         }
-        if (term_active) tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
     }
     controller->stop();
     std::cout << "[a-subs] Graceful shutdown\n";

@@ -145,6 +145,16 @@ bool NetworkSimulator::writeToSlave(std::uint16_t station_address, std::uint16_t
 {
     std::lock_guard<std::mutex> lock(mutex_);
     if (auto s = getSlaveByStationAddressNoLock(station_address)) {
+        if (reg == ::kickcat::reg::AL_CONTROL) {
+            uint16_t ctrl = 0;
+            if (len >= 2) {
+                ctrl = static_cast<uint16_t>(data[0] | (static_cast<uint16_t>(data[1]) << 8));
+            } else if (len >= 1) {
+                ctrl = data[0];
+            }
+            std::cout << "[sim] direct write station=" << station_address << " AL_CONTROL=0x" << std::hex
+                      << ctrl << std::dec << " len=" << len << "\n";
+        }
         return s->write(reg, data, len);
     }
     // If registry does not contain explicit slaves but virtualSlaveCount_ suggests presence,
@@ -173,7 +183,19 @@ bool NetworkSimulator::writeToSlaveByIndex(std::size_t index, std::uint16_t reg,
 {
     std::lock_guard<std::mutex> lock(mutex_);
     if (auto s = getSlaveByIndexNoLock(index)) {
-        if (s->online()) return s->write(reg, data, len);
+        if (s->online()) {
+            if (reg == ::kickcat::reg::AL_CONTROL) {
+                uint16_t ctrl = 0;
+                if (len >= 2) {
+                    ctrl = static_cast<uint16_t>(data[0] | (static_cast<uint16_t>(data[1]) << 8));
+                } else if (len >= 1) {
+                    ctrl = data[0];
+                }
+                std::cout << "[sim] idx=" << index << " AL_CONTROL=0x" << std::hex << ctrl << std::dec
+                          << " len=" << len << "\n";
+            }
+            return s->write(reg, data, len);
+        }
     }
     return false;
 }

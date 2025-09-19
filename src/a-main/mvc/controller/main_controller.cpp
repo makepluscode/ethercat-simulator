@@ -1,55 +1,94 @@
 #include "mvc/controller/main_controller.h"
 
-#include "bus/main_socket.h"
-#include "kickcat/Bus.h"
-#include "kickcat/Link.h"
-#include "kickcat/DebugHelpers.h"
-
+#include <algorithm>
 #include <chrono>
+#include <cstdio>
+#include <iomanip>
 #include <iostream>
 #include <sstream>
-#include <cstdio>
+#include <vector>
+
+#include "kickcat/Bus.h"
+#include "kickcat/DebugHelpers.h"
+#include "kickcat/Link.h"
+
+#include "bus/main_socket.h"
 
 using namespace std::chrono_literals;
 
 namespace ethercat_sim::app::main {
 
+namespace {
+
+std::string stateToString(kickcat::State state) {
+    switch (state) {
+    case kickcat::State::INIT:
+        return "INIT";
+    case kickcat::State::PRE_OP:
+        return "PRE_OP";
+    case kickcat::State::BOOT:
+        return "BOOT";
+    case kickcat::State::SAFE_OP:
+        return "SAFE_OP";
+    case kickcat::State::OPERATIONAL:
+        return "OP";
+    default:
+        return "INVALID";
+    }
+}
+
+std::string formatAlStatusCode(uint16_t code) {
+    std::ostringstream oss;
+    oss << "0x" << std::uppercase << std::hex << std::setw(4) << std::setfill('0') << code;
+    return oss.str();
+}
+
+SubsRow makeRow(kickcat::Slave const& slave) {
+    SubsRow row;
+    row.address = slave.address;
+    row.state   = stateToString(static_cast<kickcat::State>(slave.al_status));
+    row.al_code = formatAlStatusCode(slave.al_status_code);
+    return row;
+}
+
+} // namespace
+
 MainController::MainController(std::string endpoint, int cycle_us)
     : endpoint_(std::move(endpoint)), cycle_us_(cycle_us) {}
 
-MainController::~MainController()
-{
+MainController::~MainController() {
     stop();
 }
 
-void MainController::start()
-{
-    if (th_.joinable()) return;
+void MainController::start() {
+    if (th_.joinable()) {
+        return;
+    }
     stop_.store(false);
     th_ = std::thread(&MainController::run_, this);
 }
 
-void MainController::stop()
-{
+void MainController::stop() {
     stop_.store(true);
-    if (th_.joinable()) th_.join();
+    if (th_.joinable()) {
+        th_.join();
+    }
 }
 
-void MainController::ensureBus_()
-{
-    if (bus_) return;
+void MainController::ensureBus_() {
+    if (bus_) {
+        return;
+    }
     sock_ = std::make_shared<bus::MainSocket>(endpoint_);
     sock_->open("");
     sock_->setTimeout(200ms);
-    // Use the same socket for both nominal and redundancy interfaces
-    // This avoids the WriteThenRead error when using SocketNull
-    link_ = std::make_shared<kickcat::Link>(sock_, sock_, []{});
+    link_ = std::make_shared<kickcat::Link>(sock_, sock_, [] {});
     link_->setTimeout(200ms);
     bus_ = std::make_unique<kickcat::Bus>(link_);
+    bus_->configureWaitLatency(1ms, 20ms);
 }
 
-int32_t MainController::detectSlavesWithRetries_(int attempts, std::chrono::milliseconds delay)
-{
+int32_t MainController::detectSlavesWithRetries_(int attempts, std::chrono::milliseconds delay) {
     int32_t detected = 0;
     for (int i = 0; i < attempts; ++i) {
         detected = bus_->detectSlaves();
@@ -58,7 +97,7 @@ int32_t MainController::detectSlavesWithRetries_(int attempts, std::chrono::mill
             bus_->processAwaitingFrames();
             return detected;
         }
-        bus_->sendNop([](auto const&){});
+        bus_->sendNop([](auto const&) {});
         bus_->finalizeDatagrams();
         bus_->processAwaitingFrames();
         if (delay.count() > 0) {
@@ -68,167 +107,151 @@ int32_t MainController::detectSlavesWithRetries_(int attempts, std::chrono::mill
     return detected;
 }
 
-void MainController::scan()
-{
+void MainController::refreshSlaveAlStatusUnlocked_() {
+    if (!bus_ || !link_) {
+        return;
+    }
+    for (auto& slave : bus_->slaves()) {
+        uint8_t  al_status      = slave.al_status;
+        uint16_t al_status_code = slave.al_status_code;
+        try {
+            kickcat::sendGetRegister(*link_, slave.address, 0x0130, al_status);
+            kickcat::sendGetRegister(*link_, slave.address, 0x0134, al_status_code);
+            slave.al_status      = al_status;
+            slave.al_status_code = al_status_code;
+        } catch (...) {
+            // keep cached value when register read fails
+        }
+    }
+}
+
+std::vector<SubsRow> MainController::snapshotSlavesUnlocked_() {
+    std::vector<SubsRow> rows;
+    if (!bus_) {
+        return rows;
+    }
+    auto const& slaves = bus_->slaves();
+    rows.reserve(slaves.size());
+    for (auto const& slave : slaves) {
+        rows.push_back(makeRow(slave));
+    }
+    return rows;
+}
+
+bool MainController::allSlavesInStateUnlocked_(kickcat::State state) const {
+    if (!bus_) {
+        return false;
+    }
+    auto const& slaves = bus_->slaves();
+    if (slaves.empty()) {
+        return false;
+    }
+    return std::all_of(slaves.begin(), slaves.end(), [state](auto const& s) {
+        return static_cast<kickcat::State>(s.al_status) == state;
+    });
+}
+
+bool MainController::requestAndWaitStateUnlocked_(kickcat::State            target,
+                                                  std::chrono::milliseconds timeout) {
+    if (!bus_) {
+        return false;
+    }
+
+    auto const state_name = stateToString(target);
+    try {
+        bus_->requestState(target);
+        bus_->finalizeDatagrams();
+        bus_->processAwaitingFrames();
+        bus_->waitForState(target, timeout, [&] {
+            bus_->sendNop([](auto const&) {});
+            bus_->finalizeDatagrams();
+            bus_->processAwaitingFrames();
+        });
+        refreshSlaveAlStatusUnlocked_();
+    } catch (std::exception const& e) {
+        std::cerr << "[a-master] requestState(" << state_name << ") failed: " << e.what() << "\n";
+        return false;
+    } catch (...) {
+        std::cerr << "[a-master] requestState(" << state_name << ") threw unknown exception\n";
+        return false;
+    }
+    return allSlavesInStateUnlocked_(target);
+}
+
+void MainController::scan() {
     try {
         std::lock_guard<std::mutex> guard(bus_mutex_);
         ensureBus_();
         int32_t n = detectSlavesWithRetries_(10, 100ms);
-        // snapshot slaves
-        std::vector<SubsRow> rows;
-        rows.reserve(bus_->slaves().size());
-        for (auto const& s : bus_->slaves()) {
-            SubsRow r;
-            r.address = s.address;
-            // Map state to text
-            switch (static_cast<kickcat::State>(s.al_status)) {
-                case kickcat::State::INIT: r.state = "INIT"; break;
-                case kickcat::State::PRE_OP: r.state = "PRE_OP"; break;
-                case kickcat::State::BOOT: r.state = "BOOT"; break;
-                case kickcat::State::SAFE_OP: r.state = "SAFE_OP"; break;
-                case kickcat::State::OPERATIONAL: r.state = "OP"; break;
-                default: r.state = "INVALID"; break;
-            }
-            std::ostringstream oss; oss << "0x" << std::hex << std::uppercase << s.al_status_code;
-            r.al_code = oss.str();
-            rows.push_back(std::move(r));
+        if (n <= 0) {
+            model_->setSubs({});
+            model_->setStatus("scan err: no slave detected");
+            return;
         }
-        model_->setSubs(std::move(rows));
+        refreshSlaveAlStatusUnlocked_();
+        model_->setSubs(snapshotSlavesUnlocked_());
         model_->setStatus("scan ok");
     } catch (std::exception const& e) {
         model_->setStatus(std::string("scan err: ") + e.what());
     }
 }
 
-void MainController::initPreop()
-{
+void MainController::initPreop() {
     try {
         std::lock_guard<std::mutex> guard(bus_mutex_);
         ensureBus_();
         if (bus_->slaves().empty()) {
             auto detected = detectSlavesWithRetries_(10, 100ms);
             if (detected <= 0) {
+                model_->setSubs({});
+                model_->setPreop(false);
                 model_->setStatus("preop err: no slave detected");
                 return;
             }
         }
-        std::cout << "[a-master] Calling bus->init()\n";
+
+        bool initReached  = false;
+        bool preopReached = false;
+
         try {
             bus_->init();
-            std::cout << "[a-master] bus->init() completed\n";
-        }
-        catch (std::exception const& init_err) {
-            std::cerr << "[a-master] bus->init() timeout: " << init_err.what() << "\n";
-            try {
-                bus_->detectSlaves();
-                bus_->requestState(kickcat::State::INIT);
-                bus_->requestState(kickcat::State::PRE_OP);
+            refreshSlaveAlStatusUnlocked_();
+            preopReached = allSlavesInStateUnlocked_(kickcat::State::PRE_OP);
+            initReached  = preopReached || allSlavesInStateUnlocked_(kickcat::State::INIT);
+            if (!preopReached) {
+                std::cout << "[a-master] bus->init() completed but PRE_OP not confirmed, retrying "
+                             "manually\n";
             }
-            catch (std::exception const& fallback_err) {
-                std::cerr << "[a-master] fallback requestState failed: " << fallback_err.what() << "\n";
-            }
-
-            std::vector<SubsRow> rows;
-            rows.reserve(bus_->slaves().size());
-            for (auto& s : bus_->slaves()) {
-                // 실제 슬레이브의 AL_STATUS(0x0130)와 AL_STATUS_CODE(0x0134) 레지스터를 읽어옴
-                uint8_t al_status = 0;
-                uint16_t al_status_code = 0;
-                try {
-                    kickcat::sendGetRegister(*link_, s.address, 0x0130, al_status);
-                    kickcat::sendGetRegister(*link_, s.address, 0x0134, al_status_code);
-                    std::cout << "[a-master] Fallback read AL_STATUS from slave " << s.address 
-                              << ": 0x" << std::hex << static_cast<int>(al_status) 
-                              << " code: 0x" << al_status_code << std::dec << "\n";
-                } catch (...) {
-                    // 레지스터 읽기 실패시 기본값 사용
-                    al_status = static_cast<uint8_t>(kickcat::State::PRE_OP);
-                    al_status_code = 0;
-                    std::cout << "[a-master] Fallback failed to read AL_STATUS from slave " << s.address 
-                              << ", using default: 0x" << std::hex << static_cast<int>(al_status) 
-                              << " code: 0x" << al_status_code << std::dec << "\n";
-                }
-                s.al_status = al_status;
-                s.al_status_code = al_status_code;
-                SubsRow r;
-                r.address = s.address;
-                switch (static_cast<kickcat::State>(s.al_status)) {
-                    case kickcat::State::INIT: r.state = "INIT"; break;
-                    case kickcat::State::PRE_OP: r.state = "PRE_OP"; break;
-                    case kickcat::State::BOOT: r.state = "BOOT"; break;
-                    case kickcat::State::SAFE_OP: r.state = "SAFE_OP"; break;
-                    case kickcat::State::OPERATIONAL: r.state = "OP"; break;
-                    default: r.state = "INVALID"; break;
-                }
-                std::ostringstream oss; oss << "0x" << std::hex << std::uppercase << s.al_status_code;
-                r.al_code = oss.str();
-                rows.push_back(std::move(r));
-            }
-            model_->setSubs(std::move(rows));
-            model_->setPreop(!bus_->slaves().empty());
-            model_->setStatus("preop ok");
-            return;
+        } catch (std::exception const& init_err) {
+            std::cerr << "[a-master] bus->init() failed: " << init_err.what() << "\n";
         }
 
-        // Wait a bit for slaves to process state change
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-        // refresh snapshot
-        std::vector<SubsRow> rows;
-        rows.reserve(bus_->slaves().size());
-        std::cout << "[a-master] Checking " << bus_->slaves().size() << " slaves after init\n";
-        for (auto& s : bus_->slaves()) {
-            // 실제 슬레이브의 AL_STATUS(0x0130)와 AL_STATUS_CODE(0x0134) 레지스터를 읽어옴
-            uint8_t al_status = 0;
-            uint16_t al_status_code = 0;
-            try {
-                kickcat::sendGetRegister(*link_, s.address, 0x0130, al_status);
-                kickcat::sendGetRegister(*link_, s.address, 0x0134, al_status_code);
-                s.al_status = al_status;
-                s.al_status_code = al_status_code;
-                std::cout << "[a-master] Read AL_STATUS from slave " << s.address 
-                          << ": 0x" << std::hex << static_cast<int>(al_status) 
-                          << " code: 0x" << al_status_code << std::dec << "\n";
-            } catch (...) {
-                // 레지스터 읽기 실패시 기존 값 유지
-                al_status = s.al_status;
-                al_status_code = s.al_status_code;
-                std::cout << "[a-master] Failed to read AL_STATUS from slave " << s.address 
-                          << ", using cached: 0x" << std::hex << static_cast<int>(al_status) 
-                          << " code: 0x" << al_status_code << std::dec << "\n";
-            }
-            
-            SubsRow r;
-            r.address = s.address;
-            std::cout << "[a-master] Slave " << s.address << " AL status: 0x"
-                      << std::hex << static_cast<int>(al_status)
-                      << " code: 0x" << al_status_code << std::dec << "\n";
-            switch (static_cast<kickcat::State>(al_status)) {
-                case kickcat::State::INIT: r.state = "INIT"; break;
-                case kickcat::State::PRE_OP: r.state = "PRE_OP"; break;
-                case kickcat::State::BOOT: r.state = "BOOT"; break;
-                case kickcat::State::SAFE_OP: r.state = "SAFE_OP"; break;
-                case kickcat::State::OPERATIONAL: r.state = "OP"; break;
-                default: r.state = "INVALID"; break;
-            }
-            std::ostringstream oss; oss << "0x" << std::hex << std::uppercase << al_status_code;
-            r.al_code = oss.str();
-            rows.push_back(std::move(r));
+        constexpr auto state_timeout = 2000ms;
+        if (!preopReached) {
+            initReached =
+                requestAndWaitStateUnlocked_(kickcat::State::INIT, state_timeout) || initReached;
+            preopReached = requestAndWaitStateUnlocked_(kickcat::State::PRE_OP, state_timeout);
         }
+
+        auto rows = snapshotSlavesUnlocked_();
         model_->setSubs(std::move(rows));
-        model_->setPreop(bus_->slaves().size() > 0 && bus_->slaves()[0].al_status == static_cast<uint8_t>(kickcat::State::PRE_OP));
-        model_->setStatus("preop ok");
+        model_->setPreop(preopReached);
+
+        if (preopReached) {
+            model_->setStatus("preop ok");
+        } else if (!initReached) {
+            model_->setStatus("preop err: INIT state not reached");
+        } else {
+            model_->setStatus("preop err: PRE_OP state mismatch");
+        }
     } catch (std::exception const& e) {
-        std::cerr << "[a-master] initPreop exception: " << e.what() << "\n";
         model_->setStatus(std::string("preop err: ") + e.what());
     } catch (...) {
-        std::cerr << "[a-master] initPreop unknown exception\n";
         model_->setStatus("preop err: unknown exception");
     }
 }
 
-void MainController::requestOperational()
-{
+void MainController::requestOperational() {
     try {
         std::lock_guard<std::mutex> guard(bus_mutex_);
         ensureBus_();
@@ -242,26 +265,10 @@ void MainController::requestOperational()
         std::vector<uint8_t> iomap(4096, 0);
         bus_->createMapping(iomap.data());
         bus_->requestState(kickcat::State::OPERATIONAL);
-        bus_->waitForState(kickcat::State::OPERATIONAL, 500ms, [&]{ bus_->processDataReadWrite([](auto const&){}); });
-        // refresh snapshot
-        std::vector<SubsRow> rows;
-        rows.reserve(bus_->slaves().size());
-        for (auto const& s : bus_->slaves()) {
-            SubsRow r;
-            r.address = s.address;
-            switch (static_cast<kickcat::State>(s.al_status)) {
-                case kickcat::State::INIT: r.state = "INIT"; break;
-                case kickcat::State::PRE_OP: r.state = "PRE_OP"; break;
-                case kickcat::State::BOOT: r.state = "BOOT"; break;
-                case kickcat::State::SAFE_OP: r.state = "SAFE_OP"; break;
-                case kickcat::State::OPERATIONAL: r.state = "OP"; break;
-                default: r.state = "INVALID"; break;
-            }
-            std::ostringstream oss; oss << "0x" << std::hex << std::uppercase << s.al_status_code;
-            r.al_code = oss.str();
-            rows.push_back(std::move(r));
-        }
-        model_->setSubs(std::move(rows));
+        bus_->waitForState(kickcat::State::OPERATIONAL, 2000ms,
+                           [&] { bus_->processDataReadWrite([](auto const&) {}); });
+        refreshSlaveAlStatusUnlocked_();
+        model_->setSubs(snapshotSlavesUnlocked_());
         model_->setOperational(true);
         model_->setStatus("op ok");
     } catch (std::exception const& e) {
@@ -269,10 +276,7 @@ void MainController::requestOperational()
     }
 }
 
-void MainController::run_()
-{
-    // Removed automatic initial sequence - wait for user to press 's' key
-    // This allows slaves to be ready before scanning
+void MainController::run_() {
     model_->setStatus("ready - press 's' to scan");
 
     auto period = std::chrono::microseconds(cycle_us_);
@@ -282,35 +286,20 @@ void MainController::run_()
             {
                 std::lock_guard<std::mutex> guard(bus_mutex_);
                 ensureBus_();
-                bus_->sendNop([](auto const&){});
+                bus_->sendNop([](auto const&) {});
                 bus_->finalizeDatagrams();
                 bus_->processAwaitingFrames();
-                // periodic refresh of states (lightweight)
-                rows.reserve(bus_->slaves().size());
-                for (auto const& s : bus_->slaves()) {
-                    SubsRow r;
-                    r.address = s.address;
-                    switch (static_cast<kickcat::State>(s.al_status)) {
-                        case kickcat::State::INIT: r.state = "INIT"; break;
-                        case kickcat::State::PRE_OP: r.state = "PRE_OP"; break;
-                        case kickcat::State::BOOT: r.state = "BOOT"; break;
-                        case kickcat::State::SAFE_OP: r.state = "SAFE_OP"; break;
-                        case kickcat::State::OPERATIONAL: r.state = "OP"; break;
-                        default: r.state = "INVALID"; break;
-                    }
-                    std::ostringstream oss; oss << "0x" << std::hex << std::uppercase << s.al_status_code;
-                    r.al_code = oss.str();
-                    rows.push_back(std::move(r));
-                }
+                rows = snapshotSlavesUnlocked_();
             }
             model_->setSubs(std::move(rows));
-        } catch (...) { /* ignore */ }
+        } catch (...) {
+            // ignore transient errors
+        }
         std::this_thread::sleep_for(period);
     }
 }
 
-bool MainController::sdoUpload(int slave_index, uint16_t index, uint8_t subindex, uint32_t& value)
-{
+bool MainController::sdoUpload(int slave_index, uint16_t index, uint8_t subindex, uint32_t& value) {
     try {
         std::lock_guard<std::mutex> guard(bus_mutex_);
         ensureBus_();
@@ -320,7 +309,8 @@ bool MainController::sdoUpload(int slave_index, uint16_t index, uint8_t subindex
             return false;
         }
         uint32_t size = sizeof(uint32_t);
-        bus_->readSDO(vec[slave_index], index, subindex, kickcat::Bus::Access::COMPLETE, &value, &size, std::chrono::milliseconds(500));
+        bus_->readSDO(vec[slave_index], index, subindex, kickcat::Bus::Access::COMPLETE, &value,
+                      &size, std::chrono::milliseconds(500));
         char buf[16];
         std::snprintf(buf, sizeof(buf), "0x%08X", value);
         model_->setSdoValueHex(buf);
@@ -332,8 +322,8 @@ bool MainController::sdoUpload(int slave_index, uint16_t index, uint8_t subindex
     }
 }
 
-bool MainController::sdoDownload(int slave_index, uint16_t index, uint8_t subindex, uint32_t value)
-{
+bool MainController::sdoDownload(int slave_index, uint16_t index, uint8_t subindex,
+                                 uint32_t value) {
     try {
         std::lock_guard<std::mutex> guard(bus_mutex_);
         ensureBus_();
@@ -342,7 +332,8 @@ bool MainController::sdoDownload(int slave_index, uint16_t index, uint8_t subind
             model_->setSdoStatus("invalid slave index");
             return false;
         }
-        bus_->writeSDO(vec[slave_index], index, subindex, false, &value, sizeof(uint32_t), std::chrono::milliseconds(500));
+        bus_->writeSDO(vec[slave_index], index, subindex, false, &value, sizeof(uint32_t),
+                       std::chrono::milliseconds(500));
         model_->setSdoStatus("write ok");
         return true;
     } catch (std::exception const& e) {
@@ -351,4 +342,4 @@ bool MainController::sdoDownload(int slave_index, uint16_t index, uint8_t subind
     }
 }
 
-} // namespace ethercat_sim::app::master
+} // namespace ethercat_sim::app::main

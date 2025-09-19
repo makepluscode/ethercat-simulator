@@ -1,66 +1,111 @@
+#include <atomic>
+#include <chrono>
+#include <cstdlib>
 #include <iostream>
 #include <string>
-#include <vector>
-#include <chrono>
 #include <thread>
-#include <atomic>
-#include <csignal>
-#include <poll.h>
-#include <termios.h>
 #include <unistd.h>
 
-#include "bus/main_socket.h"
-#include "kickcat/Frame.h"
-#include "kickcat/protocol.h"
+#include "ethercat_sim/app/cli_runtime.h"
 #include "mvc/controller/main_controller.h"
 #include "mvc/model/main_model.h"
 #if HAVE_FTXUI
 #include "mvc/view/main_tui.h"
 #endif
 
-using ethercat_sim::bus::MainSocket;
-
-static void usage(const char* argv0)
-{
-    std::cerr << "Usage: " << argv0 << " [--uds PATH | --tcp HOST:PORT] [--cycle us]\n";
+static void usage(const char* argv0) {
+    std::cerr << "Usage: " << argv0 << " [--uds PATH | --tcp HOST:PORT] [--cycle us] [--headless]"
+              << " [--no-auto]\n";
 }
 
-int main(int argc, char** argv)
-{
-    std::string endpoint = "uds:///tmp/ethercat_bus.sock";
-    int cycle_us = 1000;
+namespace {
+
+bool runAutoSequence(const std::shared_ptr<ethercat_sim::app::main::MainController>& controller) {
+    using namespace std::chrono_literals;
+
+    auto model   = controller->model();
+    auto attempt = [&](const char* label, auto&& action, auto&& predicate) {
+        constexpr int  tries   = 5;
+        constexpr auto delay   = 400ms;
+        bool           success = false;
+        for (int i = 0; i < tries; ++i) {
+            action();
+            if (predicate()) {
+                success = true;
+                break;
+            }
+            std::this_thread::sleep_for(delay);
+        }
+        if (success) {
+            std::cout << "[a-master] Auto sequence step '" << label << "' ok" << std::endl;
+        } else {
+            std::cerr << "[a-master] Auto sequence step '" << label << "' failed" << std::endl;
+        }
+        return success;
+    };
+
+    auto scan_ok = attempt(
+        "scan", [&] { controller->scan(); },
+        [&] {
+            auto snap = model->snapshot();
+            return snap.detected_subs > 0 && !snap.subs.empty();
+        });
+    if (!scan_ok) {
+        return false;
+    }
+
+    auto preop_ok =
+        attempt("preop", [&] { controller->initPreop(); }, [&] { return model->snapshot().preop; });
+    if (!preop_ok) {
+        return false;
+    }
+
+    auto op_ok = attempt(
+        "operational", [&] { controller->requestOperational(); },
+        [&] { return model->snapshot().operational; });
+    return op_ok;
+}
+
+} // namespace
+
+int main(int argc, char** argv) {
+    std::string endpoint       = "uds:///tmp/ethercat_bus.sock";
+    int         cycle_us       = 1000;
+    bool        force_headless = false;
+    bool        auto_sequence  = true;
 
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
-        if (a == "--uds" && i+1 < argc) { endpoint = std::string("uds://") + argv[++i]; }
-        else if (a == "--tcp" && i+1 < argc) { endpoint = std::string("tcp://") + argv[++i]; }
-        else if (a == "--cycle" && i+1 < argc) { cycle_us = std::stoi(argv[++i]); }
-        else if (a == "-h" || a == "--help") { usage(argv[0]); return 0; }
+        if (a == "--uds" && i + 1 < argc) {
+            endpoint = std::string("uds://") + argv[++i];
+        } else if (a == "--tcp" && i + 1 < argc) {
+            endpoint = std::string("tcp://") + argv[++i];
+        } else if (a == "--cycle" && i + 1 < argc) {
+            cycle_us = std::stoi(argv[++i]);
+        } else if (a == "--headless") {
+            force_headless = true;
+        } else if (a == "--no-auto") {
+            auto_sequence = false;
+        } else if (a == "-h" || a == "--help") {
+            usage(argv[0]);
+            return 0;
+        }
     }
 
     try {
         static std::atomic_bool stop{false};
-        // Signals: Ctrl+C (SIGINT), SIGTERM, Ctrl+Z (SIGTSTP)
-        auto on_signal = [](int){ stop.store(true); };
-        struct sigaction sa{}; sa.sa_handler = on_signal; sigemptyset(&sa.sa_mask); sa.sa_flags = 0;
-        sigaction(SIGINT, &sa, nullptr);
-        sigaction(SIGTERM, &sa, nullptr);
-        sigaction(SIGTSTP, &sa, nullptr);
-        std::signal(SIGPIPE, SIG_IGN);
+        ethercat_sim::app::installSignalHandlers(stop);
 
-        auto controller = std::make_shared<ethercat_sim::app::main::MainController>(endpoint, cycle_us);
+        auto controller =
+            std::make_shared<ethercat_sim::app::main::MainController>(endpoint, cycle_us);
         controller->start();
 
-        // Setup non-blocking keyboard read for ESC
-        bool tty = ::isatty(STDIN_FILENO);
-        struct termios oldt{}; bool term_active = false;
-        if (tty) {
-            struct termios raw{};
-            if (tcgetattr(STDIN_FILENO, &oldt) == 0) {
-                raw = oldt; cfmakeraw(&raw);
-                raw.c_lflag &= ~(ICANON | ECHO);
-                raw.c_cc[VMIN] = 0; raw.c_cc[VTIME] = 0;
-                if (tcsetattr(STDIN_FILENO, TCSANOW, &raw) == 0) term_active = true;
+        bool auto_ok = true;
+        if (auto_sequence) {
+            std::cout << "[a-master] Running automatic scan/init/op sequence" << std::endl;
+            auto_ok = runAutoSequence(controller);
+            if (!auto_ok) {
+                std::cerr << "[a-master] Automatic sequence did not reach OP state" << std::endl;
             }
         }
 
@@ -68,33 +113,40 @@ int main(int argc, char** argv)
         // If FTXUI is available and not running in smoke mode, show TUI
         bool smoke = std::getenv("TUI_SMOKE_TEST") != nullptr;
 #if HAVE_FTXUI
-        if (!smoke && ::isatty(STDIN_FILENO)) {
+        bool interactive = !force_headless && !smoke && ::isatty(STDIN_FILENO);
+#else
+        bool interactive = false;
+#endif
+#if HAVE_FTXUI
+        if (interactive) {
             ethercat_sim::app::main::run_main_tui(controller, controller->model(), false);
             stop.store(true);
         } else
 #endif
         {
-            // Headless loop with ESC support
+            ethercat_sim::app::TerminalGuard terminal;
+            using namespace std::chrono_literals;
+            if (!interactive && !auto_sequence) {
+                std::cout << "[a-master] Headless mode without auto sequence - waiting for user"
+                          << std::endl;
+            } else if (!interactive && auto_ok) {
+                std::cout << "[a-master] Headless mode - OP state reached" << std::endl;
+            }
             while (!stop.load()) {
-                if (tty) {
-                    struct pollfd pfd{STDIN_FILENO, POLLIN, 0};
-                    int pr = ::poll(&pfd, 1, 200);
-                    if (pr > 0 && (pfd.revents & POLLIN)) {
-                        unsigned char ch = 0; ssize_t n = ::read(STDIN_FILENO, &ch, 1);
-                        if (n == 1 && ch == 27) { stop.store(true); break; }
+                if (terminal.isActive()) {
+                    if (terminal.pollForEscape(200ms)) {
+                        stop.store(true);
+                        break;
                     }
                 } else {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+                    std::this_thread::sleep_for(200ms);
                 }
             }
         }
 
         controller->stop();
-
-        if (term_active) tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
         std::cout << "\n[a-master] Graceful shutdown" << std::endl;
-    }
-    catch (std::exception const& e) {
+    } catch (std::exception const& e) {
         std::cerr << "[a-master] error: " << e.what() << "\n";
         return 1;
     }
