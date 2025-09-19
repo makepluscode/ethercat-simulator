@@ -9,7 +9,7 @@ A lightweight EtherCAT simulator with a core library and two primary application
 - Apps: `src/a-master/`, `src/a-slaves/`
 - Examples: `examples/` (built via `test.sh`)
 - TUI/GUI: `tui/`, `gui/`
-- Docs: `PRD.md`, `AGENTS.md`
+- Docs: `docs/` (architecture, simulator guide, PRD) and `AGENTS.md`
 - Tests: `tests/` (GoogleTest via CTest)
 
 ## Prerequisites
@@ -36,10 +36,10 @@ This builds only `a-master` and `a-slaves` into `build/src/...`.
 Local (UDS):
 ```
 # Terminal 1 (slaves)
-./a-slaves.sh                 # defaults: UDS /tmp/ethercat_bus.sock, count=1
+./a-slaves.sh                 # defaults: headless UDS /tmp/ethercat_bus.sock, count=1
 
 # Terminal 2 (master)
-./a-master.sh                 # defaults: UDS /tmp/ethercat_bus.sock, cycle=1000us
+./a-master.sh                 # defaults: headless UDS /tmp/ethercat_bus.sock, cycle=1000us
 ```
 Remote (TCP):
 ```
@@ -50,10 +50,17 @@ Remote (TCP):
 ./a-master.sh --tcp <slave-host>:5510
 ```
 
+CLI notes:
+- `tui` as the first argument launches the interactive FTXUI dashboard (`./a-master.sh tui`, `./a-slaves.sh tui`).
+- `--headless` keeps the process in non-interactive mode (default when no TTY is detected).
+- `a-master.sh` runs an automatic scan→PRE-OP→OP sequence; pass `--no-auto` to disable it and drive state changes manually.
+- UDS mode automatically removes a stale `/tmp/ethercat_bus.sock` before binding.
+
 Graceful exit: press ESC, Ctrl+C, or Ctrl+Z in either terminal.
 
 ## Notes
 - Kickcat API is preserved; the virtual bus sends raw EtherCAT frames unmodified and accumulates WKC across the slave chain.
+- Virtual slaves now simulate AL state transitions (INIT↔PRE-OP↔SAFE-OP↔OP). PRE-OP is fully supported; SAFE-OP/OP require PDO setup or manual intervention when extending the simulator.
 - Conan toolchain is used by default; avoid system packages.
 - Optional FTXUI TUI and desktop GUI are available; see `tui/` and `gui/`.
 

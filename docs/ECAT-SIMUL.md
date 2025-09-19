@@ -520,84 +520,97 @@ sequenceDiagram
     SUBS-->>USER: 슬레이브 종료 완료
 ```
 
-### 기본 실행 방법
+### 최신 실행 방법
 
 #### 1. 슬레이브 시뮬레이터 시작 과정
 
-슬레이브 시뮬레이터는 실제 EtherCAT 슬레이브 디바이스들의 동작을 소프트웨어로 시뮬레이션하는 애플리케이션입니다. 이 애플리케이션을 시작하면 지정된 개수만큼의 가상 슬레이브가 생성되고, 마스터의 명령을 기다리게 됩니다.
+`a-subs.sh` 스크립트는 공통 신호 처리와 UDS 정리, headless 모드를 자동으로 처리합니다.
 
 ```bash
-# 기본 설정으로 슬레이브 1개 실행
-# 이 명령은 Unix Domain Socket을 사용하여 로컬 통신을 수행합니다
-./build/src/a-subs/a-subs
+# 기본 설정 (headless, UDS /tmp/ethercat_bus.sock, 슬레이브 1개)
+./a-subs.sh
 
-# 여러 슬레이브 실행 (3개의 가상 슬레이브 생성)
-# 각 슬레이브는 고유한 주소를 가지며 독립적으로 동작합니다
-./build/src/a-subs/a-subs --count 3
+# FTXUI 대시보드를 띄우고 싶다면 첫 인자로 tui 사용
+./a-subs.sh tui --count 3
 
 # TCP 연결을 사용한 원격 통신
-# 네트워크를 통해 다른 시스템의 마스터와 통신할 수 있습니다
-./build/src/a-subs/a-subs --tcp localhost:8080 --count 2
+./a-subs.sh --tcp 0.0.0.0:5510 --count 2
+```
+
+#### 2. 마스터 시뮬레이터 실행 과정
+
+`a-main.sh`는 기본적으로 headless 모드에서 스캔 → PRE-OP → OP 자동 시퀀스를 수행합니다.
+
+```bash
+# 기본 설정 (headless, 자동 시퀀스, 주기 1000µs)
+./a-main.sh
+
+# FTXUI 대시보드
+./a-main.sh tui
+
+# 자동 시퀀스를 비활성화하고 수동 제어
+./a-main.sh --no-auto --headless
+
+# TCP 모드에서 원격 슬레이브 제어
+./a-main.sh --tcp <slave-host>:5510
 ```
 
 #### 2. 마스터 시뮬레이터 시작 과정
 
-마스터 시뮬레이터는 EtherCAT 네트워크의 제어 중심이 되는 애플리케이션입니다. 이 애플리케이션은 주기적으로 EtherCAT 프레임을 전송하여 슬레이브들과 통신하고, 실시간 데이터 교환을 수행합니다.
+마스터 시뮬레이터는 EtherCAT 네트워크의 제어 중심이 되는 애플리케이션입니다. `a-main.sh` 스크립트는 자동 시퀀스, headless/TUI 전환, 신호 처리를 포함하는 최신 실행 방법을 제공합니다.
 
 ```bash
-# 기본 설정으로 마스터 실행
-# 기본 사이클 시간은 1000마이크로초(1밀리초)로 설정됩니다
-./build/src/a-main/a-main
+# 기본 설정 (headless, 자동 시퀀스, 사이클 1000µs)
+./a-main.sh
 
-# 사이클 시간을 500마이크로초로 설정
-# 더 빠른 응답이 필요한 애플리케이션에 적합합니다
-./build/src/a-main/a-main --cycle 500
+# TUI에서 상태를 보면서 제어
+./a-main.sh tui
 
-# TCP 연결을 사용한 원격 통신
-# 네트워크를 통해 다른 시스템의 슬레이브들과 통신합니다
-./build/src/a-main/a-main --tcp localhost:8080 --cycle 1000
+# 더 빠른 주기로 실행하거나 자동 시퀀스를 비활성화하고 싶다면
+./a-main.sh --cycle 500 --no-auto
+
+# TCP 연결
+./a-main.sh --tcp localhost:8080
 ```
 
 ### 고급 사용법
 
 #### 동시 실행 스크립트
 ```bash
-# 터미널 1: 슬레이브 실행
-./build/src/a-subs/a-subs --count 3
+# 터미널 1: 슬레이브 실행 (3개 가상 슬레이브)
+./a-subs.sh --count 3
 
 # 터미널 2: 마스터 실행
-./build/src/a-main/a-main --cycle 1000
-```
-
-#### 자동화 스크립트
-```bash
-# 제공된 실행 스크립트 사용
-./a-subs.sh  # 슬레이브 실행
-./a-main.sh  # 마스터 실행
+./a-main.sh
 ```
 
 ### 명령줄 옵션
 
-#### a-subs (슬레이브)
+#### a-subs.sh 옵션
 ```bash
-a-subs [옵션]
+a-subs.sh [tui] [옵션]
 
 옵션:
-  --uds PATH        Unix Domain Socket 경로 (기본: /tmp/ethercat_bus.sock)
-  --tcp HOST:PORT   TCP 연결 (예: localhost:8080)
-  --count N         가상 슬레이브 개수 (기본: 1)
-  -h, --help        도움말 표시
+  tui              FTXUI 대시보드를 강제 실행
+  --uds PATH       Unix Domain Socket 경로 (기본: /tmp/ethercat_bus.sock)
+  --tcp HOST:PORT  TCP 연결 (예: localhost:5510)
+  --count N        가상 슬레이브 개수 (기본: 1)
+  --headless       명시적으로 headless 모드 강제
+  --debug          빌드가 없을 경우 Debug 빌드 생성
 ```
 
-#### a-main (마스터)
+#### a-main.sh 옵션
 ```bash
-a-main [옵션]
+a-main.sh [tui] [옵션]
 
 옵션:
-  --uds PATH        Unix Domain Socket 경로 (기본: /tmp/ethercat_bus.sock)
-  --tcp HOST:PORT   TCP 연결 (예: localhost:8080)
-  --cycle us        EtherCAT 사이클 시간 (마이크로초, 기본: 1000)
-  -h, --help        도움말 표시
+  tui              FTXUI 대시보드를 강제 실행
+  --uds PATH       Unix Domain Socket 경로 (기본: /tmp/ethercat_bus.sock)
+  --tcp HOST:PORT  TCP 연결 (예: localhost:5510)
+  --cycle us       EtherCAT 사이클 시간 (마이크로초, 기본: 1000)
+  --headless       명시적으로 headless 모드 강제
+  --no-auto        자동 스캔/상태 전이 시퀀스를 비활성화
+  --debug          Debug 빌드를 트리거
 ```
 
 ## 실제 예제

@@ -61,6 +61,12 @@ graph TB
 4. **동기화**: 분산 클록(Distributed Clock)을 통한 정밀한 시간 동기화
 5. **확장성**: 최대 65,535개의 슬레이브 디바이스 지원
 
+### 최근 구현 업데이트
+
+- **AL 상태 머신 고도화**: `VirtualSlave`가 EtherCAT AL 상태 전이(INIT ↔ PRE-OP ↔ SAFE-OP ↔ OP)를 인지하도록 구현되었습니다. PRE-OP 진입까지는 자동화돼 있으며, SAFE-OP/OP 전이는 향후 PDO 구성 로직과 연동될 예정입니다.
+- **공통 CLI 런타임**: 마스터/슬레이브 앱이 `cli_runtime.h`를 통해 신호 처리, 터미널 ESC 감지, headless 모드를 공유합니다. 기본 실행은 headless이며 `tui` 인자를 주면 FTXUI 대시보드를 실행합니다.
+- **자동 시퀀스**: `a-main.sh` 실행 시 기본적으로 스캔 → PRE-OP → OP 시퀀스를 수행합니다. `--no-auto`를 전달하면 수동 제어 모드로 전환됩니다.
+
 ### EtherCAT 통신 구조
 
 ```mermaid
