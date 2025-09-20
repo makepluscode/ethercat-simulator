@@ -5,6 +5,7 @@
 #include <thread>
 #include <unistd.h>
 
+#include "framework/logger/logger.h"
 #include "logic/slaves_controller.h"
 #include "logic/slaves_model.h"
 #if HAVE_FTXUI
@@ -15,11 +16,14 @@
 
 static void usage(const char* argv0)
 {
-    std::cerr << "Usage: " << argv0 << " [--uds PATH | --tcp HOST:PORT] [--count N] [--headless]\n";
+    ethercat_sim::framework::logger::Logger::error("Usage: %s [--uds PATH | --tcp HOST:PORT] [--count N] [--headless]", argv0);
 }
 
 int main(int argc, char** argv)
 {
+    // Initialize logger
+    ethercat_sim::framework::logger::Logger::setComponent("slaves");
+    
     std::string endpoint = "uds:///tmp/ethercat_bus.sock";
     std::size_t count    = 1;
     bool force_headless  = false;
@@ -90,6 +94,6 @@ int main(int argc, char** argv)
         }
     }
     controller->stop();
-    std::cout << "[a-slaves] Graceful shutdown\n";
+    ethercat_sim::framework::logger::Logger::info("Graceful shutdown");
     return 0;
 }

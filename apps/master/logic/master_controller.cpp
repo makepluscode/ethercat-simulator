@@ -8,6 +8,8 @@
 #include <sstream>
 #include <vector>
 
+#include "framework/logger/logger.h"
+
 #include "kickcat/Bus.h"
 #include "kickcat/DebugHelpers.h"
 #include "kickcat/Link.h"
@@ -206,12 +208,12 @@ bool MasterController::requestAndWaitStateUnlocked_(kickcat::State target,
     }
     catch (std::exception const& e)
     {
-        std::cerr << "[a-master] requestState(" << state_name << ") failed: " << e.what() << "\n";
+        ethercat_sim::framework::logger::Logger::error("requestState(%s) failed: %s", state_name, e.what());
         return false;
     }
     catch (...)
     {
-        std::cerr << "[a-master] requestState(" << state_name << ") threw unknown exception\n";
+        ethercat_sim::framework::logger::Logger::error("requestState(%s) threw unknown exception", state_name);
         return false;
     }
     return allSlavesInStateUnlocked_(target);
@@ -269,13 +271,12 @@ void MasterController::initPreop()
             initReached  = preopReached || allSlavesInStateUnlocked_(kickcat::State::INIT);
             if (!preopReached)
             {
-                std::cout << "[a-master] bus->init() completed but PRE_OP not confirmed, retrying "
-                             "manually\n";
+                ethercat_sim::framework::logger::Logger::warn("bus->init() completed but PRE_OP not confirmed, retrying manually");
             }
         }
         catch (std::exception const& init_err)
         {
-            std::cerr << "[a-master] bus->init() failed: " << init_err.what() << "\n";
+            ethercat_sim::framework::logger::Logger::error("bus->init() failed: %s", init_err.what());
         }
 
         constexpr auto state_timeout = 2000ms;

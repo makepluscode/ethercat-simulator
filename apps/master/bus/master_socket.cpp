@@ -8,6 +8,8 @@
 #include <string_view>
 #include <sys/socket.h>
 #include <sys/types.h>
+
+#include "framework/logger/logger.h"
 #include <sys/un.h>
 #include <system_error>
 #include <unistd.h>
@@ -21,26 +23,26 @@ void MasterSocket::open(std::string const& /*interface*/)
 {
     if (fd_ != -1)
         return;
-    std::cout << "[a-master] MasterSocket::open() endpoint: " << endpoint_ << "\n";
+    ethercat_sim::framework::logger::Logger::info("MasterSocket::open() endpoint: %s", endpoint_.c_str());
     std::string path, host;
     uint16_t port = 0;
     if (communication::EndpointParser::parseUdsEndpoint(endpoint_, path))
     {
-        std::cout << "[a-master] Connecting to UDS: " << path << "\n";
+        ethercat_sim::framework::logger::Logger::info("Connecting to UDS: %s", path.c_str());
         if (!connectUDS_(path))
         {
             throw std::runtime_error("MasterSocket: UDS connect failed");
         }
-        std::cout << "[a-master] Successfully connected to UDS\n";
+        ethercat_sim::framework::logger::Logger::info("Successfully connected to UDS");
     }
     else if (communication::EndpointParser::parseTcpEndpoint(endpoint_, host, port))
     {
-        std::cout << "[a-master] Connecting to TCP: " << host << ":" << port << "\n";
+        ethercat_sim::framework::logger::Logger::info("Connecting to TCP: %s:%d", host.c_str(), port);
         if (!connectTCP_(host, port))
         {
             throw std::runtime_error("MasterSocket: TCP connect failed");
         }
-        std::cout << "[a-master] Successfully connected to TCP\n";
+        ethercat_sim::framework::logger::Logger::info("Successfully connected to TCP");
     }
     else
     {
@@ -109,7 +111,7 @@ bool MasterSocket::connectUDS_(const std::string& path)
     fd_ = ::socket(AF_UNIX, SOCK_STREAM, 0);
     if (fd_ < 0)
     {
-        std::cerr << "[a-master] Failed to create socket: " << std::strerror(errno) << "\n";
+        ethercat_sim::framework::logger::Logger::error("Failed to create socket: %s", std::strerror(errno));
         return false;
     }
 
@@ -131,8 +133,7 @@ bool MasterSocket::connectUDS_(const std::string& path)
     }
     if (::connect(fd_, reinterpret_cast<sockaddr*>(&addr), len) < 0)
     {
-        std::cerr << "[a-master] Failed to connect to " << path << ": " << std::strerror(errno)
-                  << "\n";
+        ethercat_sim::framework::logger::Logger::error("Failed to connect to %s: %s", path.c_str(), std::strerror(errno));
         ::close(fd_);
         fd_ = -1;
         return false;

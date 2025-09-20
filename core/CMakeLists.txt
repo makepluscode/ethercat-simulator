@@ -7,18 +7,23 @@ add_library(ethercat_core STATIC
 target_include_directories(ethercat_core
     PUBLIC
         ${CMAKE_CURRENT_LIST_DIR}/../include
+        ${CMAKE_CURRENT_LIST_DIR}
 )
 
 target_compile_features(ethercat_core PUBLIC cxx_std_17)
 target_link_libraries(ethercat_core
     PUBLIC
         kickcat::kickcat
+        ethercat_sim_logger
 )
 
 # Framework library
 add_library(ethercat_framework STATIC
     framework/application/base_application.cpp
 )
+
+# Logger library
+add_subdirectory(framework/logger)
 
 target_include_directories(ethercat_framework
     PUBLIC
@@ -29,6 +34,7 @@ target_compile_features(ethercat_framework PUBLIC cxx_std_17)
 target_link_libraries(ethercat_framework
     PUBLIC
         ethercat_core
+        ethercat_sim_logger
 )
 
 if(HAVE_KICKCAT)

@@ -3,13 +3,16 @@
 #include <chrono>
 #include <iostream>
 
+#include "framework/logger/logger.h"
+
 namespace ethercat_sim::simulation
 {
 
 void NetworkSimulator::initialize(const std::string& config) noexcept
 {
     (void) config; // placeholder until real configuration is used
-    std::cout << "[ethercat_sim] NetworkSimulator initialized" << std::endl;
+    ethercat_sim::framework::logger::Logger::setComponent("core");
+    ethercat_sim::framework::logger::Logger::info("NetworkSimulator initialized");
 }
 
 int NetworkSimulator::runOnce() noexcept
@@ -182,8 +185,7 @@ bool NetworkSimulator::writeToSlave(std::uint16_t station_address, std::uint16_t
             {
                 ctrl = data[0];
             }
-            std::cout << "[sim] direct write station=" << station_address << " AL_CONTROL=0x"
-                      << std::hex << ctrl << std::dec << " len=" << len << "\n";
+            ethercat_sim::framework::logger::Logger::debug("direct write station=%d AL_CONTROL=0x%x len=%d", station_address, ctrl, len);
         }
         return s->write(reg, data, len);
     }
@@ -232,8 +234,7 @@ bool NetworkSimulator::writeToSlaveByIndex(std::size_t index, std::uint16_t reg,
                 {
                     ctrl = data[0];
                 }
-                std::cout << "[sim] idx=" << index << " AL_CONTROL=0x" << std::hex << ctrl
-                          << std::dec << " len=" << len << "\n";
+                ethercat_sim::framework::logger::Logger::debug("idx=%d AL_CONTROL=0x%x len=%d", index, ctrl, len);
             }
             return s->write(reg, data, len);
         }

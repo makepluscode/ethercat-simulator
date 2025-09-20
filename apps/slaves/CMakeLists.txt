@@ -9,6 +9,7 @@ add_executable(slaves
 target_include_directories(slaves
     PRIVATE
         ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/core
         ${CMAKE_CURRENT_LIST_DIR}
 )
 
@@ -16,6 +17,7 @@ target_compile_features(slaves PUBLIC cxx_std_17)
 target_link_libraries(slaves
     PRIVATE
         ethercat_core
+        ethercat_sim_logger
         kickcat::kickcat
 )
 

@@ -3,6 +3,8 @@
 #include <cstring>
 #include <iostream>
 
+#include "framework/logger/logger.h"
+
 namespace ethercat_sim::framework
 {
 
@@ -21,7 +23,7 @@ int BaseApplication::run(int argc, char** argv)
         // Initialize application
         if (!initialize())
         {
-            std::cerr << "[" << getName() << "] Initialization failed" << std::endl;
+            ethercat_sim::framework::logger::Logger::error("[%s] Initialization failed", getName().c_str());
             cleanupTerminal();
             return 1;
         }
@@ -33,12 +35,12 @@ int BaseApplication::run(int argc, char** argv)
         cleanup();
         cleanupTerminal();
 
-        std::cout << "\n[" << getName() << "] Graceful shutdown" << std::endl;
+        ethercat_sim::framework::logger::Logger::info("[%s] Graceful shutdown", getName().c_str());
         return 0;
     }
     catch (const std::exception& e)
     {
-        std::cerr << "[" << getName() << "] Error: " << e.what() << std::endl;
+        ethercat_sim::framework::logger::Logger::error("[%s] Error: %s", getName().c_str(), e.what());
         cleanupTerminal();
         return 1;
     }

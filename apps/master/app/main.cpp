@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "ethercat_sim/app/cli_runtime.h"
+#include "framework/logger/logger.h"
 #include "logic/master_controller.h"
 #include "logic/master_model.h"
 #if HAVE_FTXUI
@@ -15,8 +16,7 @@
 
 static void usage(const char* argv0)
 {
-    std::cerr << "Usage: " << argv0 << " [--uds PATH | --tcp HOST:PORT] [--cycle us] [--headless]"
-              << " [--no-auto]\n";
+    ethercat_sim::framework::logger::Logger::error("Usage: %s [--uds PATH | --tcp HOST:PORT] [--cycle us] [--headless] [--no-auto]", argv0);
 }
 
 namespace
@@ -44,11 +44,11 @@ bool runAutoSequence(const std::shared_ptr<ethercat_sim::app::master::MasterCont
         }
         if (success)
         {
-            std::cout << "[a-master] Auto sequence step '" << label << "' ok" << std::endl;
+            ethercat_sim::framework::logger::Logger::info("Auto sequence step '%s' ok", label);
         }
         else
         {
-            std::cerr << "[a-master] Auto sequence step '" << label << "' failed" << std::endl;
+            ethercat_sim::framework::logger::Logger::error("Auto sequence step '%s' failed", label);
         }
         return success;
     };
@@ -82,6 +82,9 @@ bool runAutoSequence(const std::shared_ptr<ethercat_sim::app::master::MasterCont
 
 int main(int argc, char** argv)
 {
+    // Initialize logger
+    ethercat_sim::framework::logger::Logger::setComponent("master");
+    
     std::string endpoint = "uds:///tmp/ethercat_bus.sock";
     int cycle_us         = 1000;
     bool force_headless  = false;
@@ -129,11 +132,11 @@ int main(int argc, char** argv)
         bool auto_ok = true;
         if (auto_sequence)
         {
-            std::cout << "[a-master] Running automatic scan/init/op sequence" << std::endl;
+            ethercat_sim::framework::logger::Logger::info("Running automatic scan/init/op sequence");
             auto_ok = runAutoSequence(controller);
             if (!auto_ok)
             {
-                std::cerr << "[a-master] Automatic sequence did not reach OP state" << std::endl;
+                ethercat_sim::framework::logger::Logger::error("Automatic sequence did not reach OP state");
             }
         }
 
@@ -158,12 +161,11 @@ int main(int argc, char** argv)
             using namespace std::chrono_literals;
             if (!interactive && !auto_sequence)
             {
-                std::cout << "[a-master] Headless mode without auto sequence - waiting for user"
-                          << std::endl;
+                ethercat_sim::framework::logger::Logger::info("Headless mode without auto sequence - waiting for user");
             }
             else if (!interactive && auto_ok)
             {
-                std::cout << "[a-master] Headless mode - OP state reached" << std::endl;
+                ethercat_sim::framework::logger::Logger::info("Headless mode - OP state reached");
             }
             while (!stop.load())
             {
@@ -183,11 +185,11 @@ int main(int argc, char** argv)
         }
 
         controller->stop();
-        std::cout << "\n[a-master] Graceful shutdown" << std::endl;
+        ethercat_sim::framework::logger::Logger::info("Graceful shutdown");
     }
     catch (std::exception const& e)
     {
-        std::cerr << "[a-master] error: " << e.what() << "\n";
+        ethercat_sim::framework::logger::Logger::error("error: %s", e.what());
         return 1;
     }
 }

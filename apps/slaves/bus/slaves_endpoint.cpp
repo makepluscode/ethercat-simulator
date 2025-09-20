@@ -14,6 +14,8 @@
 #include <thread>
 #include <unistd.h>
 
+#include "framework/logger/logger.h"
+
 #include "kickcat/Frame.h"
 #include "kickcat/protocol.h"
 
@@ -28,7 +30,7 @@ bool SlavesEndpoint::bindUDS_(const std::string& path)
     listen_fd_ = ::socket(AF_UNIX, SOCK_STREAM, 0);
     if (listen_fd_ < 0)
     {
-        std::cerr << "[a-slaves] Failed to create socket: " << strerror(errno) << "\n";
+        ethercat_sim::framework::logger::Logger::error("Failed to create socket: %s", strerror(errno));
         return false;
     }
 
@@ -54,17 +56,17 @@ bool SlavesEndpoint::bindUDS_(const std::string& path)
     }
     if (::bind(listen_fd_, reinterpret_cast<sockaddr*>(&addr), len) < 0)
     {
-        std::cerr << "[a-slaves] Failed to bind socket: " << strerror(errno) << "\n";
+        ethercat_sim::framework::logger::Logger::error("Failed to bind socket: %s", strerror(errno));
         ::close(listen_fd_);
         return false;
     }
     if (::listen(listen_fd_, 1) < 0)
     {
-        std::cerr << "[a-slaves] Failed to listen on socket: " << strerror(errno) << "\n";
+        ethercat_sim::framework::logger::Logger::error("Failed to listen on socket: %s", strerror(errno));
         ::close(listen_fd_);
         return false;
     }
-    std::cout << "[a-slaves] Socket bound and listening, fd=" << listen_fd_ << "\n";
+    ethercat_sim::framework::logger::Logger::info("Socket bound and listening, fd=%d", listen_fd_);
     return true;
 }
 
@@ -232,7 +234,7 @@ void SlavesEndpoint::processFrame_(uint8_t* frame, int32_t frame_size)
             ack = 0;
             if (dbg)
             {
-                std::cerr << "[a-slaves][DBG] NOP" << std::endl;
+                ethercat_sim::framework::logger::Logger::debug("NOP");
             }
             break;
         }
@@ -242,8 +244,7 @@ void SlavesEndpoint::processFrame_(uint8_t* frame, int32_t frame_size)
             ack    = (n == 0) ? 1 : n; // ensure >0 to help initial detection
             if (dbg)
             {
-                std::cerr << "[a-slaves][DBG] BRD len=" << hdr->len << " wkc->" << ack
-                          << " online=" << sim_->onlineSlaveCount() << std::endl;
+                ethercat_sim::framework::logger::Logger::debug("BRD len=%d wkc->%d online=%d", hdr->len, ack, sim_->onlineSlaveCount());
             }
             break;
         }
@@ -381,44 +382,43 @@ void SlavesEndpoint::processFrame_(uint8_t* frame, int32_t frame_size)
 
 bool SlavesEndpoint::run()
 {
-    std::cout << "[a-slaves] SubsEndpoint::run() started with endpoint: " << endpoint_ << "\n";
+    ethercat_sim::framework::logger::Logger::info("SlavesEndpoint::run() started with endpoint: %s", endpoint_.c_str());
     std::string path, host;
     uint16_t port = 0;
     if (communication::EndpointParser::parseUdsEndpoint(endpoint_, path))
     {
-        std::cout << "[a-slaves] Parsed UDS endpoint, path: " << path << "\n";
+        ethercat_sim::framework::logger::Logger::info("Parsed UDS endpoint, path: %s", path.c_str());
         if (!bindUDS_(path))
         {
-            std::cerr << "[a-slaves] Failed to bind UDS at " << path << "\n";
+            ethercat_sim::framework::logger::Logger::error("Failed to bind UDS at %s", path.c_str());
             return false;
         }
-        std::cout << "[a-slaves] Successfully bound and listening UDS " << path << "\n";
+        ethercat_sim::framework::logger::Logger::info("Successfully bound and listening UDS %s", path.c_str());
     }
     else if (communication::EndpointParser::parseTcpEndpoint(endpoint_, host, port))
     {
-        std::cout << "[a-slaves] Parsed TCP endpoint, host: " << host << ", port: " << port << "\n";
+        ethercat_sim::framework::logger::Logger::info("Parsed TCP endpoint, host: %s, port: %d", host.c_str(), port);
         if (!bindTCP_(host, port))
         {
-            std::cerr << "[a-slaves] Failed to bind TCP at " << host << ":" << port << "\n";
+            ethercat_sim::framework::logger::Logger::error("Failed to bind TCP at %s:%d", host.c_str(), port);
             return false;
         }
-        std::cout << "[a-slaves] Successfully bound and listening TCP " << host << ":" << port
-                  << "\n";
+        ethercat_sim::framework::logger::Logger::info("Successfully bound and listening TCP %s:%d", host.c_str(), port);
     }
     else
     {
-        std::cerr << "[a-slaves] Unsupported endpoint: " << endpoint_ << "\n";
+        ethercat_sim::framework::logger::Logger::error("Unsupported endpoint: %s", endpoint_.c_str());
         return false;
     }
 
     // Accept loop with poll to allow graceful stop
-    std::cout << "[a-slaves] Entering accept loop, waiting for connections...\n";
+    ethercat_sim::framework::logger::Logger::info("Entering accept loop, waiting for connections...");
     int fd = -1;
     while (true)
     {
         if (stop_ && stop_->load())
         {
-            std::cout << "[a-slaves] Stop requested, exiting accept loop\n";
+            ethercat_sim::framework::logger::Logger::info("Stop requested, exiting accept loop");
             fd = -1;
             break;
         }
@@ -429,7 +429,7 @@ bool SlavesEndpoint::run()
         int pr = ::poll(&pfd, 1, 200);
         if (pr < 0)
         {
-            std::cerr << "[a-slaves] Poll error: " << strerror(errno) << "\n";
+            ethercat_sim::framework::logger::Logger::error("Poll error: %s", strerror(errno));
             fd = -1;
             break;
         }
@@ -440,13 +440,13 @@ bool SlavesEndpoint::run()
             sockaddr_storage peer{};
             socklen_t plen = sizeof(peer);
             fd             = ::accept(listen_fd_, reinterpret_cast<sockaddr*>(&peer), &plen);
-            std::cout << "[a-slaves] Accept returned fd=" << fd << "\n";
+            ethercat_sim::framework::logger::Logger::info("Accept returned fd=%d", fd);
             break;
         }
     }
     if (stop_ && stop_->load())
     {
-        std::cout << "[a-slaves] Stop requested before client connect\n";
+        ethercat_sim::framework::logger::Logger::info("Stop requested before client connect");
         if (listen_fd_ != -1)
             ::close(listen_fd_);
         if (!uds_is_abstract_ && !bound_disk_path_.empty())
@@ -461,7 +461,7 @@ bool SlavesEndpoint::run()
             ::unlink(bound_disk_path_.c_str());
         return false;
     }
-    std::cout << "[a-slaves] Client connected\n";
+    ethercat_sim::framework::logger::Logger::info("Client connected");
     if (on_connection_)
         on_connection_(true);
     bool ok = handleClient_(fd);
