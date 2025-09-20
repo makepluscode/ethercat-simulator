@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "kickcat/protocol.h"
+#include "framework/logger/logger.h"
 
 namespace ethercat_sim::simulation
 {
@@ -20,6 +21,9 @@ class VirtualSlave
         : address_(address), vendor_id_(vendor_id), product_code_(product_code),
           name_(std::move(name))
     {
+        ethercat_sim::framework::logger::Logger::debug("VirtualSlave constructor: addr=%d, vendor=0x%08X, product=0x%08X, name='%s'", 
+                                                      address_, vendor_id_, product_code_, name_.c_str());
+        
         // initialize a minimal ESC register map
         // Set STATION_ADDR (0x0010) with the configured address (LE)
         regs_.at(0x0010) = static_cast<uint8_t>(address_ & 0xFF);
@@ -27,6 +31,8 @@ class VirtualSlave
 
         // Initialize AL status/state to INIT
         al_state_ = ::kickcat::State::INIT;
+        ethercat_sim::framework::logger::Logger::debug("VirtualSlave[%d] initialized AL state to INIT", address_);
+        
         // Initialize default mailbox offsets/sizes (standard mailbox)
         mb_recv_offset_ = 0x1000;
         mb_recv_size_   = 512;
@@ -40,6 +46,8 @@ class VirtualSlave
 
         // Initialize EEPROM with proper data
         initializeEeprom_();
+        
+        ethercat_sim::framework::logger::Logger::debug("VirtualSlave[%d] initialization complete", address_);
     }
 
     std::uint16_t address() const noexcept
@@ -75,8 +83,16 @@ class VirtualSlave
     }
     void setALState(::kickcat::State s) noexcept
     {
+        auto old_state = al_state_;
         al_state_ = s;
+        ethercat_sim::framework::logger::Logger::debug("VirtualSlave[%d] AL state transition: %d -> %d", 
+                                                      address_, static_cast<int>(old_state), static_cast<int>(s));
         syncCoreRegisters_();
+    }
+    
+    bool isInputPDOMapped() const noexcept
+    {
+        return input_pdo_mapped_;
     }
 
     // Minimal register map (byte-addressable)
@@ -396,8 +412,8 @@ class VirtualSlave
         ::kickcat::State requested    = static_cast<::kickcat::State>(ctrl & STATE_MASK);
         bool ack_bit                  = (ctrl & static_cast<uint16_t>(::kickcat::State::ACK)) != 0;
 
-        std::cout << "[slave " << address_ << "] AL_CONTROL write: 0x" << std::hex << ctrl
-                  << " current state: " << static_cast<int>(al_state_) << std::dec << "\n";
+        ethercat_sim::framework::logger::Logger::debug("VirtualSlave[%d] AL_CONTROL write: 0x%04X current state: %d", 
+                                                      address_, ctrl, static_cast<int>(al_state_));
 
         if (ack_bit)
         {
@@ -425,7 +441,7 @@ class VirtualSlave
         {
             al_status_code_ = 0;
             syncCoreRegisters_();
-            std::cout << "[slave " << address_ << "] Ack-only write ignored state change\n";
+            ethercat_sim::framework::logger::Logger::debug("VirtualSlave[%d] Ack-only write ignored state change", address_);
             return true;
         }
 
@@ -466,8 +482,7 @@ class VirtualSlave
         al_status_code_ = 0;
         ack_requested_  = false;
         syncCoreRegisters_();
-        std::cout << "[slave " << address_ << "] New AL state: " << static_cast<int>(al_state_)
-                  << "\n";
+        ethercat_sim::framework::logger::Logger::debug("VirtualSlave[%d] New AL state: %d", address_, static_cast<int>(al_state_));
         return true;
     }
 
@@ -502,15 +517,23 @@ class VirtualSlave
     {
         if (target == ::kickcat::State::BOOT)
         {
+            ethercat_sim::framework::logger::Logger::debug("VirtualSlave[%d] preconditionsMet_(BOOT): false (not supported)", address_);
             return false;
         }
 
         // For SAFE_OP and OPERATIONAL, PDO mapping must be configured
         if (target == ::kickcat::State::SAFE_OP || target == ::kickcat::State::OPERATIONAL)
         {
-            return input_pdo_mapped_;
+            bool result = input_pdo_mapped_;
+            ethercat_sim::framework::logger::Logger::debug("VirtualSlave[%d] preconditionsMet_(%d): %s (input_pdo_mapped_=%s)", 
+                                                          address_, static_cast<int>(target), 
+                                                          result ? "true" : "false", 
+                                                          input_pdo_mapped_ ? "true" : "false");
+            return result;
         }
 
+        ethercat_sim::framework::logger::Logger::debug("VirtualSlave[%d] preconditionsMet_(%d): true (no special requirements)", 
+                                                      address_, static_cast<int>(target));
         return true;
     }
 
