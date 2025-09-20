@@ -1,32 +1,30 @@
-#include <gtest/gtest.h>
 #include <cstdint>
+#include <gtest/gtest.h>
+
+#include "kickcat/protocol.h"
 
 #include "ethercat_sim/simulation/network_simulator.h"
 #include "ethercat_sim/simulation/virtual_slave.h"
-#include "kickcat/protocol.h"
 
 using ethercat_sim::simulation::NetworkSimulator;
 using ethercat_sim::simulation::VirtualSlave;
 
 namespace {
 
-void read16(NetworkSimulator& sim, uint16_t station, uint16_t reg, uint16_t& out)
-{
+void read16(NetworkSimulator& sim, uint16_t station, uint16_t reg, uint16_t& out) {
     std::uint8_t buf[2] = {0, 0};
     ASSERT_TRUE(sim.readFromSlave(station, reg, buf, sizeof(buf)));
     out = static_cast<uint16_t>(buf[0] | (static_cast<uint16_t>(buf[1]) << 8));
 }
 
-void write8(NetworkSimulator& sim, uint16_t station, uint16_t reg, uint8_t val)
-{
+void write8(NetworkSimulator& sim, uint16_t station, uint16_t reg, uint8_t val) {
     std::uint8_t buf[2] = {val, 0x00};
     ASSERT_TRUE(sim.writeToSlave(station, reg, buf, sizeof(buf)));
 }
 
 } // namespace
 
-TEST(VirtualSlaveAL, TransitionGating_StatusCodes)
-{
+TEST(VirtualSlaveAL, TransitionGating_StatusCodes) {
     NetworkSimulator sim;
     sim.initialize();
     sim.clearSlaves();
@@ -63,4 +61,3 @@ TEST(VirtualSlaveAL, TransitionGating_StatusCodes)
     read16(sim, 1, ::kickcat::reg::AL_STATUS_CODE, al_code);
     EXPECT_EQ(al_code, 0x0000);
 }
-

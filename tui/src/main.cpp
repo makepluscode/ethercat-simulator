@@ -18,8 +18,8 @@
 
 // FastDDS
 #include <fastdds/dds/core/ReturnCode.hpp>
-#include <fastdds/dds/domain/DomainParticipantFactory.hpp>
 #include <fastdds/dds/domain/DomainParticipant.hpp>
+#include <fastdds/dds/domain/DomainParticipantFactory.hpp>
 #include <fastdds/dds/subscriber/DataReader.hpp>
 #include <fastdds/dds/subscriber/SampleInfo.hpp>
 #include <fastdds/dds/subscriber/Subscriber.hpp>
@@ -37,12 +37,9 @@ void handle_signal(int) noexcept {
 int main() {
     // Smoke-test mode for CI/CTest: render once and exit
     if (std::getenv("TUI_SMOKE_TEST")) {
-        auto doc = ftxui::vbox({
-                         ftxui::text("EtherCAT Simulator") | ftxui::bold |
-                             ftxui::color(ftxui::Color::Green),
-                         ftxui::separator(),
-                         ftxui::text("TUI smoke test")
-                     }) |
+        auto doc = ftxui::vbox({ftxui::text("EtherCAT Simulator") | ftxui::bold |
+                                    ftxui::color(ftxui::Color::Green),
+                                ftxui::separator(), ftxui::text("TUI smoke test")}) |
                    ftxui::border;
         auto screen = ftxui::Screen::Create(ftxui::Dimension::Fit(doc));
         ftxui::Render(screen, doc);
@@ -56,9 +53,9 @@ int main() {
     std::signal(SIGTERM, handle_signal);
 
     // Shared state for received messages
-    std::mutex mtx;
+    std::mutex               mtx;
     std::vector<std::string> messages;
-    const std::size_t max_messages = 100;
+    const std::size_t        max_messages = 100;
 
     // FastDDS setup
     eprosima::fastdds::dds::DomainParticipant* participant = nullptr;
@@ -68,27 +65,29 @@ int main() {
         qos.transport().use_builtin_transports = false;
         qos.transport().user_transports.push_back(
             std::make_shared<eprosima::fastdds::rtps::SharedMemTransportDescriptor>());
-        participant = eprosima::fastdds::dds::DomainParticipantFactory::get_instance()
-                          ->create_participant(0, qos);
+        participant =
+            eprosima::fastdds::dds::DomainParticipantFactory::get_instance()->create_participant(
+                0, qos);
     }
     if (!participant) {
-        participant = eprosima::fastdds::dds::DomainParticipantFactory::get_instance()
-                          ->create_participant(
-                              0, eprosima::fastdds::dds::PARTICIPANT_QOS_DEFAULT);
+        participant =
+            eprosima::fastdds::dds::DomainParticipantFactory::get_instance()->create_participant(
+                0, eprosima::fastdds::dds::PARTICIPANT_QOS_DEFAULT);
     }
 
     eprosima::fastdds::dds::Subscriber* subscriber = nullptr;
-    eprosima::fastdds::dds::Topic* topic = nullptr;
-    eprosima::fastdds::dds::DataReader* reader = nullptr;
+    eprosima::fastdds::dds::Topic*      topic      = nullptr;
+    eprosima::fastdds::dds::DataReader* reader     = nullptr;
     if (participant) {
-        eprosima::fastdds::dds::TypeSupport type(new ethercat_sim::communication::TextMsgPubSubType());
+        eprosima::fastdds::dds::TypeSupport type(
+            new ethercat_sim::communication::TextMsgPubSubType());
         type.register_type(participant);
         topic = participant->create_topic("sim_text", type.get_type_name(),
                                           eprosima::fastdds::dds::TOPIC_QOS_DEFAULT);
-        subscriber = participant->create_subscriber(
-            eprosima::fastdds::dds::SUBSCRIBER_QOS_DEFAULT, nullptr);
-        reader = subscriber->create_datareader(
-            topic, eprosima::fastdds::dds::DATAREADER_QOS_DEFAULT);
+        subscriber =
+            participant->create_subscriber(eprosima::fastdds::dds::SUBSCRIBER_QOS_DEFAULT, nullptr);
+        reader =
+            subscriber->create_datareader(topic, eprosima::fastdds::dds::DATAREADER_QOS_DEFAULT);
     }
 
     // Create screen now so background threads can notify redraw.
@@ -100,8 +99,8 @@ int main() {
         dds_thread = std::thread([&]() {
             while (g_running.load(std::memory_order_relaxed)) {
                 ethercat_sim::communication::TextMsg msg;
-                eprosima::fastdds::dds::SampleInfo info;
-                auto rc = reader->take_next_sample(&msg, &info);
+                eprosima::fastdds::dds::SampleInfo   info;
+                auto                                 rc = reader->take_next_sample(&msg, &info);
                 if (rc == eprosima::fastdds::dds::RETCODE_OK &&
                     info.instance_state == eprosima::fastdds::dds::ALIVE_INSTANCE_STATE) {
                     {
@@ -131,12 +130,10 @@ int main() {
             }
         }
         if (lines.empty()) {
-            lines.push_back(ftxui::text("Waiting for DDS messages on 'sim_text'...") |
-                            ftxui::dim);
+            lines.push_back(ftxui::text("Waiting for DDS messages on 'sim_text'...") | ftxui::dim);
         }
         auto content = ftxui::vbox({
-            ftxui::text("EtherCAT Simulator") | ftxui::bold |
-                ftxui::color(ftxui::Color::Green),
+            ftxui::text("EtherCAT Simulator") | ftxui::bold | ftxui::color(ftxui::Color::Green),
             ftxui::separator(),
             ftxui::text("Press ESC/Ctrl+C/Ctrl+Z to exit") | ftxui::dim,
             ftxui::separator(),
@@ -169,17 +166,21 @@ int main() {
 
     // Cleanup threads and DDS
     g_running.store(false, std::memory_order_relaxed);
-    if (exit_watcher.joinable()) exit_watcher.join();
-    if (dds_thread.joinable()) dds_thread.join();
+    if (exit_watcher.joinable())
+        exit_watcher.join();
+    if (dds_thread.joinable())
+        dds_thread.join();
 
     if (subscriber && reader) {
         subscriber->delete_datareader(reader);
     }
     if (participant) {
-        if (subscriber) participant->delete_subscriber(subscriber);
-        if (topic) participant->delete_topic(topic);
-        eprosima::fastdds::dds::DomainParticipantFactory::get_instance()
-            ->delete_participant(participant);
+        if (subscriber)
+            participant->delete_subscriber(subscriber);
+        if (topic)
+            participant->delete_topic(topic);
+        eprosima::fastdds::dds::DomainParticipantFactory::get_instance()->delete_participant(
+            participant);
     }
     return 0;
 }

@@ -25,7 +25,7 @@ class MasterSocket;
 namespace ethercat_sim::app::master {
 
 class MasterController {
-public:
+  public:
     MasterController(std::string endpoint, int cycle_us);
     ~MasterController();
 
@@ -44,20 +44,20 @@ public:
     }
 
   private:
-    void                 run_();
-    void                 ensureBus_();
-    int32_t              detectSlavesWithRetries_(int attempts, std::chrono::milliseconds delay);
-    void                 refreshSlaveAlStatusUnlocked_();
+    void                   run_();
+    void                   ensureBus_();
+    int32_t                detectSlavesWithRetries_(int attempts, std::chrono::milliseconds delay);
+    void                   refreshSlaveAlStatusUnlocked_();
     std::vector<SlavesRow> snapshotSlavesUnlocked_();
-    bool                 allSlavesInStateUnlocked_(kickcat::State state) const;
+    bool                   allSlavesInStateUnlocked_(kickcat::State state) const;
     bool requestAndWaitStateUnlocked_(kickcat::State target, std::chrono::milliseconds timeout);
 
-    std::string                      endpoint_;
-    int                              cycle_us_{1000};
+    std::string                        endpoint_;
+    int                                cycle_us_{1000};
     std::shared_ptr<MasterModel>       model_{std::make_shared<MasterModel>()};
     std::shared_ptr<bus::MasterSocket> sock_;
-    std::shared_ptr<kickcat::Link>   link_;
-    std::unique_ptr<kickcat::Bus>    bus_;
+    std::shared_ptr<kickcat::Link>     link_;
+    std::unique_ptr<kickcat::Bus>      bus_;
 
     std::thread      th_;
     std::atomic_bool stop_{false};

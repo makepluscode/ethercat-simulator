@@ -57,3 +57,5 @@ Thumbs.db
 # Application logs
 a-main.log
 a-subs.log
+master.log
+slaves.log

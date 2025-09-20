@@ -2,15 +2,15 @@
 #include <gtest/gtest.h>
 
 // Fast DDS
-#include <fastdds/dds/domain/DomainParticipantFactory.hpp>
+#include <fastdds/dds/core/ReturnCode.hpp>
 #include <fastdds/dds/domain/DomainParticipant.hpp>
-#include <fastdds/dds/publisher/Publisher.hpp>
+#include <fastdds/dds/domain/DomainParticipantFactory.hpp>
 #include <fastdds/dds/publisher/DataWriter.hpp>
-#include <fastdds/dds/subscriber/Subscriber.hpp>
+#include <fastdds/dds/publisher/Publisher.hpp>
 #include <fastdds/dds/subscriber/DataReader.hpp>
 #include <fastdds/dds/subscriber/SampleInfo.hpp>
+#include <fastdds/dds/subscriber/Subscriber.hpp>
 #include <fastdds/dds/topic/Topic.hpp>
-#include <fastdds/dds/core/ReturnCode.hpp>
 #include <fastdds/rtps/transport/shared_mem/SharedMemTransportDescriptor.hpp>
 
 // STL
@@ -28,16 +28,14 @@ using namespace std::chrono_literals;
 
 namespace {
 
-std::string unique_topic()
-{
+std::string unique_topic() {
     // Unique topic per test run to avoid clashes across processes
     return std::string("sim_text_test_") + std::to_string(::getpid());
 }
 
 } // namespace
 
-TEST(DdsTextPubSub, PublishReceive_ShmOnly_Succeeds)
-{
+TEST(DdsTextPubSub, PublishReceive_ShmOnly_Succeeds) {
     using namespace eprosima::fastdds::dds;
     using ethercat_sim::communication::TextMsg;
     using ethercat_sim::communication::TextMsgPubSubType;
@@ -45,7 +43,7 @@ TEST(DdsTextPubSub, PublishReceive_ShmOnly_Succeeds)
     TypeSupport type(new TextMsgPubSubType());
 
     // Participant with SHM-only transport (no UDP)
-    DomainParticipantQos qos = PARTICIPANT_QOS_DEFAULT;
+    DomainParticipantQos qos               = PARTICIPANT_QOS_DEFAULT;
     qos.transport().use_builtin_transports = false;
     qos.transport().user_transports.push_back(
         std::make_shared<eprosima::fastdds::rtps::SharedMemTransportDescriptor>());
@@ -57,7 +55,7 @@ TEST(DdsTextPubSub, PublishReceive_ShmOnly_Succeeds)
 
     type.register_type(participant);
 
-    auto topic_name = unique_topic();
+    auto   topic_name = unique_topic();
     Topic* topic = participant->create_topic(topic_name, type.get_type_name(), TOPIC_QOS_DEFAULT);
     ASSERT_NE(topic, nullptr);
 
@@ -75,15 +73,16 @@ TEST(DdsTextPubSub, PublishReceive_ShmOnly_Succeeds)
     std::this_thread::sleep_for(100ms);
 
     // Publish a sample
-    TextMsg msg; msg.text = "hello_dds";
+    TextMsg msg;
+    msg.text = "hello_dds";
     auto ret = writer->write(&msg);
     EXPECT_EQ(ret, eprosima::fastdds::dds::RETCODE_OK);
 
     // Poll for reception up to ~2s
-    TextMsg received{};
+    TextMsg    received{};
     SampleInfo info{};
-    bool got = false;
-    auto start = std::chrono::steady_clock::now();
+    bool       got   = false;
+    auto       start = std::chrono::steady_clock::now();
     while (std::chrono::steady_clock::now() - start < 2s) {
         if (reader->take_next_sample(&received, &info) == eprosima::fastdds::dds::RETCODE_OK &&
             info.instance_state == ALIVE_INSTANCE_STATE) {

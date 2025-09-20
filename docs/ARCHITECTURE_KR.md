@@ -570,9 +570,9 @@ a-subs/
 
 **EL1258 디지털 입력 모듈 시뮬레이션**:
 ```cpp
-class EL1258Subs : public VirtualSlave {
+class El1258Slave : public VirtualSlave {
 public:
-    EL1258Subs(std::uint16_t address) 
+    El1258Slave(std::uint16_t address) 
         : VirtualSlave(address, 0x00000002, 0x001C0E52, "EL1258") {
         // EL1258 특정 초기화
         initializeDigitalInputs();
@@ -619,7 +619,7 @@ public:
         
         // 가상 슬레이브 생성
         for (int i = 0; i < slave_count_; ++i) {
-            auto slave = std::make_shared<EL1258Subs>(i + 1);
+            auto slave = std::make_shared<El1258Slave>(i + 1);
             simulator->addVirtualSlave(slave);
             slaves_.push_back(slave);
         }
@@ -651,7 +651,7 @@ private:
     void updateDeviceStates() {
         // 디바이스별 상태 업데이트
         for (auto& slave : slaves_) {
-            if (auto el1258 = std::dynamic_pointer_cast<EL1258Subs>(slave)) {
+            if (auto el1258 = std::dynamic_pointer_cast<El1258Slave>(slave)) {
                 // 디지털 입력 상태 시뮬레이션
                 simulateDigitalInputs(el1258);
             }

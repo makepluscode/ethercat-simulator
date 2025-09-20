@@ -1,15 +1,14 @@
-#include "ethercat_sim/kickcat/sim_socket.h"
-#include "ethercat_sim/simulation/network_simulator.h"
-
-#include "kickcat/Link.h"
-#include "kickcat/Bus.h"
-#include "kickcat/SocketNull.h"
-
 #include <iostream>
 #include <memory>
 
-int main()
-{
+#include "kickcat/Bus.h"
+#include "kickcat/Link.h"
+#include "kickcat/SocketNull.h"
+
+#include "ethercat_sim/kickcat/sim_socket.h"
+#include "ethercat_sim/simulation/network_simulator.h"
+
+int main() {
     using ethercat_sim::simulation::NetworkSimulator;
 
     auto sim = std::make_shared<NetworkSimulator>();
@@ -21,7 +20,7 @@ int main()
     auto redun   = std::make_shared<::kickcat::SocketNull>();
 
     // Minimal link and bus setup
-    auto link = std::make_shared<::kickcat::Link>(nominal, redun, []{});
+    auto link = std::make_shared<::kickcat::Link>(nominal, redun, [] {});
     link->setTimeout(std::chrono::milliseconds(2));
 
     ::kickcat::Bus bus(link);

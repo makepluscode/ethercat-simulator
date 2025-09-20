@@ -152,7 +152,7 @@ bool MasterController::allSlavesInStateUnlocked_(kickcat::State state) const {
 }
 
 bool MasterController::requestAndWaitStateUnlocked_(kickcat::State            target,
-                                                  std::chrono::milliseconds timeout) {
+                                                    std::chrono::milliseconds timeout) {
     if (!bus_) {
         return false;
     }
@@ -299,7 +299,8 @@ void MasterController::run_() {
     }
 }
 
-bool MasterController::sdoUpload(int slave_index, uint16_t index, uint8_t subindex, uint32_t& value) {
+bool MasterController::sdoUpload(int slave_index, uint16_t index, uint8_t subindex,
+                                 uint32_t& value) {
     try {
         std::lock_guard<std::mutex> guard(bus_mutex_);
         ensureBus_();
@@ -323,7 +324,7 @@ bool MasterController::sdoUpload(int slave_index, uint16_t index, uint8_t subind
 }
 
 bool MasterController::sdoDownload(int slave_index, uint16_t index, uint8_t subindex,
-                                 uint32_t value) {
+                                   uint32_t value) {
     try {
         std::lock_guard<std::mutex> guard(bus_mutex_);
         ensureBus_();

@@ -11,4 +11,3 @@ struct EtherCATFrame {
 };
 
 } // namespace ethercat_sim::communication
-

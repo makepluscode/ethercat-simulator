@@ -20,7 +20,8 @@ static void usage(const char* argv0) {
 
 namespace {
 
-bool runAutoSequence(const std::shared_ptr<ethercat_sim::app::master::MasterController>& controller) {
+bool runAutoSequence(
+    const std::shared_ptr<ethercat_sim::app::master::MasterController>& controller) {
     using namespace std::chrono_literals;
 
     auto model   = controller->model();

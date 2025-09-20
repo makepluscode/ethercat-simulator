@@ -695,7 +695,7 @@ simulator.setLinkUp(true);   // 링크 활성화
 #### 슬레이브 구성
 ```cpp
 // 가상 슬레이브 추가
-auto slave1 = std::make_shared<EL1258Subs>(1);  // 주소 1
+auto slave1 = std::make_shared<El1258Slave>(1);  // 주소 1
 auto slave2 = std::make_shared<EL2004Subs>(2);  // 주소 2
 
 simulator.addVirtualSlave(slave1);

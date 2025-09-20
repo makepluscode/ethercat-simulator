@@ -1,16 +1,16 @@
-#include <gtest/gtest.h>
 #include <cstdint>
 #include <cstring>
+#include <gtest/gtest.h>
+
+#include "kickcat/protocol.h"
 
 #include "ethercat_sim/simulation/network_simulator.h"
 #include "ethercat_sim/simulation/virtual_slave.h"
-#include "kickcat/protocol.h"
 
 using ethercat_sim::simulation::NetworkSimulator;
 using ethercat_sim::simulation::VirtualSlave;
 
-TEST(VirtualSlave, AL_DL_Defaults_And_AL_CONTROL_ChangesState)
-{
+TEST(VirtualSlave, AL_DL_Defaults_And_AL_CONTROL_ChangesState) {
     NetworkSimulator sim;
     sim.initialize();
     sim.clearSlaves();
@@ -32,11 +32,10 @@ TEST(VirtualSlave, AL_DL_Defaults_And_AL_CONTROL_ChangesState)
     EXPECT_TRUE((dl & (1u << 9)) != 0); // COM_port0
 
     // Write AL_CONTROL to request PRE_OP and observe AL_STATUS change
-    std::uint8_t al_ctl[2] = { static_cast<uint8_t>(::kickcat::State::PRE_OP), 0x00 };
+    std::uint8_t al_ctl[2] = {static_cast<uint8_t>(::kickcat::State::PRE_OP), 0x00};
     ASSERT_TRUE(sim.writeToSlave(1, ::kickcat::reg::AL_CONTROL, al_ctl, sizeof(al_ctl)));
 
     std::uint8_t al_status2[2] = {0, 0};
     ASSERT_TRUE(sim.readFromSlave(1, ::kickcat::reg::AL_STATUS, al_status2, sizeof(al_status2)));
     EXPECT_EQ(al_status2[0], static_cast<uint8_t>(::kickcat::State::PRE_OP));
 }
-

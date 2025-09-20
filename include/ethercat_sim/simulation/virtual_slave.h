@@ -447,12 +447,12 @@ class VirtualSlave {
         if (target == ::kickcat::State::BOOT) {
             return false;
         }
-        
+
         // For SAFE_OP and OPERATIONAL, PDO mapping must be configured
         if (target == ::kickcat::State::SAFE_OP || target == ::kickcat::State::OPERATIONAL) {
             return input_pdo_mapped_;
         }
-        
+
         return true;
     }
 

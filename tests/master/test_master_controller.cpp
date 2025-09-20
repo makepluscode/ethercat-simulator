@@ -1,8 +1,7 @@
-#include <gtest/gtest.h>
-
 #include <atomic>
 #include <chrono>
 #include <filesystem>
+#include <gtest/gtest.h>
 #include <memory>
 #include <string>
 #include <thread>
@@ -14,21 +13,19 @@
 using namespace std::chrono_literals;
 
 namespace {
-std::string unique_socket_path()
-{
-    auto pid = static_cast<long>(::getpid());
-    auto now = std::chrono::steady_clock::now().time_since_epoch().count();
-    std::filesystem::path p = std::filesystem::temp_directory_path() /
+std::string unique_socket_path() {
+    auto                  pid = static_cast<long>(::getpid());
+    auto                  now = std::chrono::steady_clock::now().time_since_epoch().count();
+    std::filesystem::path p =
+        std::filesystem::temp_directory_path() /
         ("ethercat_test_" + std::to_string(pid) + "_" + std::to_string(now) + ".sock");
     return p.string();
 }
 
-class MasterSlaveFixture : public ::testing::Test
-{
-protected:
-    void SetUp() override
-    {
-        socket_path_ = unique_socket_path();
+class MasterSlaveFixture : public ::testing::Test {
+  protected:
+    void SetUp() override {
+        socket_path_  = unique_socket_path();
         endpoint_uri_ = std::string("uds://") + socket_path_;
         stop_flag_.store(false);
         slave_ = std::make_unique<ethercat_sim::bus::SlavesEndpoint>(endpoint_uri_);
@@ -48,8 +45,7 @@ protected:
         }
     }
 
-    void TearDown() override
-    {
+    void TearDown() override {
         stop_flag_.store(true);
         if (slave_thread_.joinable()) {
             slave_thread_.join();
@@ -59,26 +55,25 @@ protected:
         EXPECT_TRUE(slave_result_.load()) << "Slave endpoint run() returned false";
     }
 
-    std::shared_ptr<ethercat_sim::app::master::MasterController> makeController()
-    {
-        auto controller = std::make_shared<ethercat_sim::app::master::MasterController>(endpoint_uri_, 1000);
+    std::shared_ptr<ethercat_sim::app::master::MasterController> makeController() {
+        auto controller =
+            std::make_shared<ethercat_sim::app::master::MasterController>(endpoint_uri_, 1000);
         controller->start();
         std::this_thread::sleep_for(50ms);
         return controller;
     }
 
-    std::string socket_path_;
-    std::string endpoint_uri_;
+    std::string                                        socket_path_;
+    std::string                                        endpoint_uri_;
     std::unique_ptr<ethercat_sim::bus::SlavesEndpoint> slave_;
-    std::thread slave_thread_;
-    std::atomic_bool stop_flag_{false};
-    std::atomic_bool slave_result_{false};
+    std::thread                                        slave_thread_;
+    std::atomic_bool                                   stop_flag_{false};
+    std::atomic_bool                                   slave_result_{false};
 };
 
 } // namespace
 
-TEST_F(MasterSlaveFixture, ScanDetectsSingleSlave)
-{
+TEST_F(MasterSlaveFixture, ScanDetectsSingleSlave) {
     auto controller = makeController();
 
     controller->scan();
@@ -89,8 +84,7 @@ TEST_F(MasterSlaveFixture, ScanDetectsSingleSlave)
     controller->stop();
 }
 
-TEST_F(MasterSlaveFixture, InitPreopTransitionsToPreop)
-{
+TEST_F(MasterSlaveFixture, InitPreopTransitionsToPreop) {
     auto controller = makeController();
 
     controller->initPreop();
