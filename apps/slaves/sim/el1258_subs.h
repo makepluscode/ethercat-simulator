@@ -11,7 +11,23 @@ public:
     explicit El1258Subs(uint16_t station_addr,
                         uint32_t vendor_id = 0x00000000,
                         uint32_t product_code = 0x00000000)
-        : VirtualSlave(station_addr, vendor_id, product_code, "EL1258") {}
+        : VirtualSlave(station_addr, vendor_id, product_code, "EL1258") {
+        // Apply default PDO mapping to enable SAFE_OP and OPERATIONAL states
+        applyDefaultTxPdoMapping();
+    }
+
+    // Apply a sensible default TxPDO mapping for 8 DI channels:
+    // - 0x1A00:01 = 0x6002:00 (8 bits aggregate)
+    // - 0x1C13:01 = 0x1A00 assignment
+    // This marks inputs as PDO-mapped for AL state gating purposes.
+    void applyDefaultTxPdoMapping() noexcept
+    {
+        map_count_ = 1;
+        mappings_[0] = (0x6002u << 16) | (0x00u << 8) | 8u;
+        assign_count_ = 1;
+        assigned_ = true;
+        setInputPDOMapped(true);
+    }
 
     bool readDigitalInputsBitfield(uint32_t& bits_out) const noexcept override
     {
