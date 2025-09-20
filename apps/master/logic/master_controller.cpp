@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <iomanip>
 #include <iostream>
+#include <kickcat/Error.h>
 #include <sstream>
 #include <vector>
 
@@ -192,28 +193,45 @@ bool MasterController::requestAndWaitStateUnlocked_(kickcat::State target,
     }
 
     auto const state_name = stateToString(target);
-    try
-    {
-        bus_->requestState(target);
-        bus_->finalizeDatagrams();
-        bus_->processAwaitingFrames();
-        bus_->waitForState(target, timeout,
-                           [&]
-                           {
-                               bus_->sendNop([](auto const&) {});
-                               bus_->finalizeDatagrams();
-                               bus_->processAwaitingFrames();
-                           });
+   try
+   {
+       bus_->requestState(target);
+       bus_->finalizeDatagrams();
+       bus_->processAwaitingFrames();
+       bus_->waitForState(target, timeout,
+                          [&]
+                          {
+                              bus_->sendNop([](auto const&) {});
+                              bus_->finalizeDatagrams();
+                              bus_->processAwaitingFrames();
+                          });
+       refreshSlaveAlStatusUnlocked_();
+   }
+   catch (std::exception const& e)
+   {
+        ethercat_sim::framework::logger::Logger::error("requestState(%s) failed: %s", state_name,
+                                                       e.what());
         refreshSlaveAlStatusUnlocked_();
-    }
-    catch (std::exception const& e)
-    {
-        ethercat_sim::framework::logger::Logger::error("requestState(%s) failed: %s", state_name, e.what());
+        if (allSlavesInStateUnlocked_(target))
+        {
+            ethercat_sim::framework::logger::Logger::warn(
+                "requestState(%s) threw, but all slaves already report target state", state_name);
+            return true;
+        }
         return false;
     }
     catch (...)
     {
-        ethercat_sim::framework::logger::Logger::error("requestState(%s) threw unknown exception", state_name);
+        ethercat_sim::framework::logger::Logger::error("requestState(%s) threw unknown exception",
+                                                       state_name);
+        refreshSlaveAlStatusUnlocked_();
+        if (allSlavesInStateUnlocked_(target))
+        {
+            ethercat_sim::framework::logger::Logger::warn(
+                "requestState(%s) threw unknown exception, but target state already reached",
+                state_name);
+            return true;
+        }
         return false;
     }
     return allSlavesInStateUnlocked_(target);
@@ -265,10 +283,19 @@ void MasterController::initPreop()
 
         try
         {
+            ethercat_sim::framework::logger::Logger::info("Starting bus->init()");
             bus_->init();
+            ethercat_sim::framework::logger::Logger::info("bus->init() completed");
+
             refreshSlaveAlStatusUnlocked_();
             preopReached = allSlavesInStateUnlocked_(kickcat::State::PRE_OP);
+            ethercat_sim::framework::logger::Logger::info(
+                std::string("After bus->init(): preopReached = ") + (preopReached ? "true" : "false")
+            );
             initReached  = preopReached || allSlavesInStateUnlocked_(kickcat::State::INIT);
+            ethercat_sim::framework::logger::Logger::info(
+                std::string("After bus->init(): initReached = ") + (initReached ? "true" : "false")
+            );
             if (!preopReached)
             {
                 ethercat_sim::framework::logger::Logger::warn("bus->init() completed but PRE_OP not confirmed, retrying manually");
@@ -279,13 +306,17 @@ void MasterController::initPreop()
             ethercat_sim::framework::logger::Logger::error("bus->init() failed: %s", init_err.what());
         }
 
-        constexpr auto state_timeout = 2000ms;
-        if (!preopReached)
-        {
-            initReached =
-                requestAndWaitStateUnlocked_(kickcat::State::INIT, state_timeout) || initReached;
-            preopReached = requestAndWaitStateUnlocked_(kickcat::State::PRE_OP, state_timeout);
-        }
+        constexpr auto state_timeout = 8000ms;
+       if (!preopReached)
+       {
+           initReached =
+               requestAndWaitStateUnlocked_(kickcat::State::INIT, state_timeout) || initReached;
+           preopReached = requestAndWaitStateUnlocked_(kickcat::State::PRE_OP, state_timeout);
+       }
+
+        refreshSlaveAlStatusUnlocked_();
+        initReached = initReached || allSlavesInStateUnlocked_(kickcat::State::INIT);
+        preopReached = preopReached || allSlavesInStateUnlocked_(kickcat::State::PRE_OP);
 
         auto rows = snapshotSlavesUnlocked_();
         model_->setSlaves(std::move(rows));

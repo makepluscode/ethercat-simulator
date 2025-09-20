@@ -479,21 +479,23 @@ class VirtualSlave
     {
         ::kickcat::State requested = decodeControlState_(ctrl);
         bool ack_bit               = (ctrl & static_cast<uint16_t>(::kickcat::State::ACK)) != 0;
-        bool ack_was_requested     = ack_requested_;
 
         LOG_DEBUG("VirtualSlave[" + std::to_string(address_) + "] AL_CONTROL write: 0x" +
                   std::to_string(ctrl) +
                   " current state: " + std::to_string(static_cast<int>(al_state_)));
 
+        int initial_rank   = stateRank_(al_state_);
+        int requested_rank = stateRank_(requested);
+        bool wants_progress =
+            (requested != ::kickcat::State::INVALID) && (requested_rank > initial_rank);
         if (ack_bit)
         {
             ack_requested_  = false;
             al_status_code_ = 0;
 
-            // When ACK bit is set but no acknowledgement was expected, treat the write as a
-            // simple acknowledgement without attempting a state transition. Some masters send
-            // ACK+INIT after requesting PRE_OP, and we should not fall back to INIT in that case.
-            if (!ack_was_requested)
+            // Treat ACK writes without a higher target state as pure acknowledgements to avoid
+            // unintended downgrades (e.g. ACK+INIT while already in PRE_OP).
+            if (!wants_progress)
             {
                 syncCoreRegisters_();
                 return true;

@@ -151,28 +151,43 @@ TEST(EL1258, AL_Transition_Gating_By_PDO_Mapping)
     // Initially INIT
     uint8_t al_status[2] = {0};
     ASSERT_TRUE(sim.readFromSlave(1, ::kickcat::reg::AL_STATUS, al_status, sizeof(al_status)));
-    EXPECT_EQ(al_status[0], static_cast<uint8_t>(::kickcat::State::INIT));
+    EXPECT_EQ(al_status[0] & 0x0Fu, static_cast<uint8_t>(::kickcat::State::INIT));
+    EXPECT_EQ(al_status[0] & static_cast<uint8_t>(::kickcat::State::ACK), 0u);
 
     // Try SAFE_OP without PDO mapping -> denied
     uint8_t al_ctl_safe[2] = {static_cast<uint8_t>(::kickcat::State::SAFE_OP), 0x00};
     ASSERT_TRUE(sim.writeToSlave(1, ::kickcat::reg::AL_CONTROL, al_ctl_safe, sizeof(al_ctl_safe)));
     ASSERT_TRUE(sim.readFromSlave(1, ::kickcat::reg::AL_STATUS, al_status, sizeof(al_status)));
-    EXPECT_EQ(al_status[0], static_cast<uint8_t>(::kickcat::State::INIT));
+    EXPECT_EQ(al_status[0] & 0x0Fu, static_cast<uint8_t>(::kickcat::State::PRE_OP));
+    EXPECT_NE(al_status[0] & static_cast<uint8_t>(::kickcat::State::ACK), 0u);
     uint8_t al_code[2] = {0};
     ASSERT_TRUE(sim.readFromSlave(1, ::kickcat::reg::AL_STATUS_CODE, al_code, sizeof(al_code)));
-    EXPECT_NE(static_cast<uint16_t>(al_code[0] | (al_code[1] << 8)), 0u);
+    EXPECT_EQ(static_cast<uint16_t>(al_code[0] | (al_code[1] << 8)), 0x0011u);
+
+    // Acknowledge before retrying
+    uint8_t ack_buf[2] = {static_cast<uint8_t>(::kickcat::State::INIT) |
+                              static_cast<uint8_t>(::kickcat::State::ACK),
+                          0x00};
+    ASSERT_TRUE(sim.writeToSlave(1, ::kickcat::reg::AL_CONTROL, ack_buf, sizeof(ack_buf)));
+    ASSERT_TRUE(sim.readFromSlave(1, ::kickcat::reg::AL_STATUS, al_status, sizeof(al_status)));
+    EXPECT_EQ(al_status[0] & 0x0Fu, static_cast<uint8_t>(::kickcat::State::PRE_OP));
+    EXPECT_EQ(al_status[0] & static_cast<uint8_t>(::kickcat::State::ACK), 0u);
+    ASSERT_TRUE(sim.readFromSlave(1, ::kickcat::reg::AL_STATUS_CODE, al_code, sizeof(al_code)));
+    EXPECT_EQ(static_cast<uint16_t>(al_code[0] | (al_code[1] << 8)), 0x0000u);
 
     // Map inputs and retry SAFE_OP -> allowed
     sim.mapDigitalInputs(el, 0x0000, 1);
     ASSERT_TRUE(sim.writeToSlave(1, ::kickcat::reg::AL_CONTROL, al_ctl_safe, sizeof(al_ctl_safe)));
     ASSERT_TRUE(sim.readFromSlave(1, ::kickcat::reg::AL_STATUS, al_status, sizeof(al_status)));
-    EXPECT_EQ(al_status[0], static_cast<uint8_t>(::kickcat::State::SAFE_OP));
+    EXPECT_EQ(al_status[0] & 0x0Fu, static_cast<uint8_t>(::kickcat::State::SAFE_OP));
+    EXPECT_EQ(al_status[0] & static_cast<uint8_t>(::kickcat::State::ACK), 0u);
 
     // OP should also be allowed now
     uint8_t al_ctl_op[2] = {static_cast<uint8_t>(::kickcat::State::OPERATIONAL), 0x00};
     ASSERT_TRUE(sim.writeToSlave(1, ::kickcat::reg::AL_CONTROL, al_ctl_op, sizeof(al_ctl_op)));
     ASSERT_TRUE(sim.readFromSlave(1, ::kickcat::reg::AL_STATUS, al_status, sizeof(al_status)));
-    EXPECT_EQ(al_status[0], static_cast<uint8_t>(::kickcat::State::OPERATIONAL));
+    EXPECT_EQ(al_status[0] & 0x0Fu, static_cast<uint8_t>(::kickcat::State::OPERATIONAL));
+    EXPECT_EQ(al_status[0] & static_cast<uint8_t>(::kickcat::State::ACK), 0u);
 }
 
 TEST(EL1258, CoE_TxPDO_Mapping_Enables_SafeOp)
@@ -189,7 +204,16 @@ TEST(EL1258, CoE_TxPDO_Mapping_Enables_SafeOp)
     ASSERT_TRUE(sim.writeToSlave(1, ::kickcat::reg::AL_CONTROL, al_ctl_safe, sizeof(al_ctl_safe)));
     uint8_t al_st[2] = {0};
     ASSERT_TRUE(sim.readFromSlave(1, ::kickcat::reg::AL_STATUS, al_st, sizeof(al_st)));
-    EXPECT_EQ(al_st[0], static_cast<uint8_t>(::kickcat::State::INIT));
+    EXPECT_EQ(al_st[0] & 0x0Fu, static_cast<uint8_t>(::kickcat::State::PRE_OP));
+    EXPECT_NE(al_st[0] & static_cast<uint8_t>(::kickcat::State::ACK), 0u);
+
+    uint8_t ack_buf[2] = {static_cast<uint8_t>(::kickcat::State::INIT) |
+                              static_cast<uint8_t>(::kickcat::State::ACK),
+                          0x00};
+    ASSERT_TRUE(sim.writeToSlave(1, ::kickcat::reg::AL_CONTROL, ack_buf, sizeof(ack_buf)));
+    ASSERT_TRUE(sim.readFromSlave(1, ::kickcat::reg::AL_STATUS, al_st, sizeof(al_st)));
+    EXPECT_EQ(al_st[0] & 0x0Fu, static_cast<uint8_t>(::kickcat::State::PRE_OP));
+    EXPECT_EQ(al_st[0] & static_cast<uint8_t>(::kickcat::State::ACK), 0u);
 
     // Map 0x1A00 with a single entry (e.g., aggregate at 0x6002:00, 8 bits)
     // value format: 0xIIII SS BB => index(16) | sub(8) | size_bits(8)
@@ -203,7 +227,8 @@ TEST(EL1258, CoE_TxPDO_Mapping_Enables_SafeOp)
     // Retry SAFE_OP -> should pass
     ASSERT_TRUE(sim.writeToSlave(1, ::kickcat::reg::AL_CONTROL, al_ctl_safe, sizeof(al_ctl_safe)));
     ASSERT_TRUE(sim.readFromSlave(1, ::kickcat::reg::AL_STATUS, al_st, sizeof(al_st)));
-    EXPECT_EQ(al_st[0], static_cast<uint8_t>(::kickcat::State::SAFE_OP));
+    EXPECT_EQ(al_st[0] & 0x0Fu, static_cast<uint8_t>(::kickcat::State::SAFE_OP));
+    EXPECT_EQ(al_st[0] & static_cast<uint8_t>(::kickcat::State::ACK), 0u);
 }
 
 TEST(EL1258, DefaultTxPdoMapping_Enables_SafeOp)

@@ -250,21 +250,39 @@ void SlavesEndpoint::processFrame_(uint8_t* frame, int32_t frame_size)
             }
             break;
         }
-        case ::kickcat::Command::BWR:
-        case ::kickcat::Command::BRW:
-        {
-            auto [pos, ado] = ::kickcat::extractAddress(hdr->address);
-            (void) pos;
-            uint16_t okc       = 0;
-            std::size_t online = sim_->onlineSlaveCount();
-            for (std::size_t idx = 0; idx < online; ++idx)
+       case ::kickcat::Command::BWR:
+       case ::kickcat::Command::BRW:
+       {
+           auto [pos, ado] = ::kickcat::extractAddress(hdr->address);
+           (void) pos;
+           uint16_t okc       = 0;
+           std::size_t online = sim_->onlineSlaveCount();
+           for (std::size_t idx = 0; idx < online; ++idx)
+           {
+               if (sim_->writeToSlaveByIndex(idx, ado, data, hdr->len))
+               {
+                   ++okc;
+               }
+           }
+           ack = okc;
+           ethercat_sim::framework::logger::Logger::debug(
+               "SlavesEndpoint B%cW ado=0x%04X len=%u ok=%u", hdr->command == ::kickcat::Command::BRW
+                                                                    ? 'R'
+                                                                    : ' ',
+               ado, static_cast<unsigned>(hdr->len), okc);
+            if (ado == ::kickcat::reg::AL_CONTROL && hdr->len >= 1)
             {
-                if (sim_->writeToSlaveByIndex(idx, ado, data, hdr->len))
+                uint16_t ctrl = static_cast<uint16_t>(data[0]);
+                if (hdr->len >= 2)
                 {
-                    ++okc;
+                    ctrl |= static_cast<uint16_t>(data[1]) << 8;
                 }
+                ethercat_sim::framework::logger::Logger::debug(
+                    "SlavesEndpoint B%cW AL_CONTROL value=0x%04X", hdr->command == ::kickcat::Command::BRW
+                                                                      ? 'R'
+                                                                      : ' ',
+                    ctrl);
             }
-            ack = okc;
             if (dbg)
             {
                 uint16_t value = 0;
@@ -282,18 +300,48 @@ void SlavesEndpoint::processFrame_(uint8_t* frame, int32_t frame_size)
             }
             break;
         }
-        case ::kickcat::Command::FPRD:
-        case ::kickcat::Command::FPWR:
-        case ::kickcat::Command::FPRW:
-        {
-            auto [adp, ado] = ::kickcat::extractAddress(hdr->address);
-            bool ok         = false;
-            bool is_read    = (hdr->command == ::kickcat::Command::FPRD);
-            if (is_read)
-                ok = sim_->readFromSlave(adp, ado, data, hdr->len);
-            else
-                ok = sim_->writeToSlave(adp, ado, data, hdr->len);
-            ack = ok ? 1 : 0;
+       case ::kickcat::Command::FPRD:
+       case ::kickcat::Command::FPWR:
+       case ::kickcat::Command::FPRW:
+       {
+           auto [adp, ado] = ::kickcat::extractAddress(hdr->address);
+           bool ok         = false;
+           bool is_read    = (hdr->command == ::kickcat::Command::FPRD);
+           if (is_read)
+               ok = sim_->readFromSlave(adp, ado, data, hdr->len);
+           else
+               ok = sim_->writeToSlave(adp, ado, data, hdr->len);
+           ack = ok ? 1 : 0;
+            ethercat_sim::framework::logger::Logger::debug(
+                "SlavesEndpoint FP%c%c adp=%u ado=0x%04X len=%u ok=%d", is_read ? 'R' : 'W',
+                hdr->command == ::kickcat::Command::FPRW ? 'W' : ' ', adp, ado,
+                static_cast<unsigned>(hdr->len), ok);
+            if (ado == ::kickcat::reg::AL_CONTROL && hdr->len >= 1)
+            {
+                uint16_t ctrl = static_cast<uint16_t>(data[0]);
+                if (hdr->len >= 2)
+                {
+                    ctrl |= static_cast<uint16_t>(data[1]) << 8;
+                }
+                ethercat_sim::framework::logger::Logger::debug(
+                    "SlavesEndpoint FP%s AL_CONTROL adp=%u value=0x%04X ok=%d", is_read ? "RD"
+                                                                                           : "WR",
+                    adp, ctrl, ok);
+            }
+            if (is_read && ado == ::kickcat::reg::AL_STATUS && hdr->len >= 2)
+            {
+                uint16_t status = static_cast<uint16_t>(data[0]) |
+                                  (static_cast<uint16_t>(data[1]) << 8);
+                ethercat_sim::framework::logger::Logger::debug(
+                    "SlavesEndpoint FPRD AL_STATUS adp=%u value=0x%04X", adp, status);
+            }
+            if (is_read && ado == ::kickcat::reg::AL_STATUS_CODE && hdr->len >= 2)
+            {
+                uint16_t code = static_cast<uint16_t>(data[0]) |
+                                (static_cast<uint16_t>(data[1]) << 8);
+                ethercat_sim::framework::logger::Logger::debug(
+                    "SlavesEndpoint FPRD AL_STATUS_CODE adp=%u value=0x%04X", adp, code);
+            }
             if (dbg)
             {
                 std::cerr << "[a-slaves][DBG] "
@@ -310,20 +358,51 @@ void SlavesEndpoint::processFrame_(uint8_t* frame, int32_t frame_size)
             }
             break;
         }
-        case ::kickcat::Command::APRD:
-        case ::kickcat::Command::APWR:
-        case ::kickcat::Command::APRW:
-        {
-            auto [pos, ado] = ::kickcat::extractAddress(hdr->address);
+       case ::kickcat::Command::APRD:
+       case ::kickcat::Command::APWR:
+       case ::kickcat::Command::APRW:
+       {
+           auto [pos, ado] = ::kickcat::extractAddress(hdr->address);
             std::size_t idx = (pos & 0x8000)
                                   ? static_cast<std::size_t>(static_cast<uint16_t>(0 - pos))
                                   : static_cast<std::size_t>(pos);
-            bool ok         = false;
-            if (hdr->command == ::kickcat::Command::APRD)
-                ok = sim_->readFromSlaveByIndex(idx, ado, data, hdr->len);
-            else
-                ok = sim_->writeToSlaveByIndex(idx, ado, data, hdr->len);
-            ack = ok ? 1 : 0;
+           bool ok         = false;
+           if (hdr->command == ::kickcat::Command::APRD)
+               ok = sim_->readFromSlaveByIndex(idx, ado, data, hdr->len);
+           else
+               ok = sim_->writeToSlaveByIndex(idx, ado, data, hdr->len);
+           ack = ok ? 1 : 0;
+            ethercat_sim::framework::logger::Logger::debug(
+                "SlavesEndpoint AP%c%c idx=%zu ado=0x%04X len=%u ok=%d",
+                hdr->command == ::kickcat::Command::APRD ? 'R' : 'W',
+                hdr->command == ::kickcat::Command::APRW ? 'W' : ' ', idx, ado,
+                static_cast<unsigned>(hdr->len), ok);
+            bool is_read = (hdr->command == ::kickcat::Command::APRD);
+            if (ado == ::kickcat::reg::AL_CONTROL && hdr->len >= 1)
+            {
+                uint16_t ctrl = static_cast<uint16_t>(data[0]);
+                if (hdr->len >= 2)
+                {
+                    ctrl |= static_cast<uint16_t>(data[1]) << 8;
+                }
+                ethercat_sim::framework::logger::Logger::debug(
+                    "SlavesEndpoint AP%s AL_CONTROL idx=%zu value=0x%04X ok=%d",
+                    is_read ? "RD" : "WR", idx, ctrl, ok);
+            }
+            if (is_read && ado == ::kickcat::reg::AL_STATUS && hdr->len >= 2)
+            {
+                uint16_t status = static_cast<uint16_t>(data[0]) |
+                                  (static_cast<uint16_t>(data[1]) << 8);
+                ethercat_sim::framework::logger::Logger::debug(
+                    "SlavesEndpoint APRD AL_STATUS idx=%zu value=0x%04X", idx, status);
+            }
+            if (is_read && ado == ::kickcat::reg::AL_STATUS_CODE && hdr->len >= 2)
+            {
+                uint16_t code = static_cast<uint16_t>(data[0]) |
+                                (static_cast<uint16_t>(data[1]) << 8);
+                ethercat_sim::framework::logger::Logger::debug(
+                    "SlavesEndpoint APRD AL_STATUS_CODE idx=%zu value=0x%04X", idx, code);
+            }
             if (dbg)
             {
                 std::cerr << "[a-slaves][DBG] APRD/APWR/APRW idx=" << idx << " ado=0x" << std::hex

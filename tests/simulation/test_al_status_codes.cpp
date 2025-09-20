@@ -39,29 +39,52 @@ TEST(VirtualSlaveAL, TransitionGating_StatusCodes)
     // Start at INIT
     uint16_t al_status = 0;
     read16(sim, 1, ::kickcat::reg::AL_STATUS, al_status);
-    EXPECT_EQ(al_status & 0x00FF, static_cast<uint8_t>(::kickcat::State::INIT));
+    EXPECT_EQ(al_status & 0x000F, static_cast<uint8_t>(::kickcat::State::INIT));
 
-    // With no input PDO mapping, SAFE_OP must fail with 0x0011 and stay INIT
+    // With no input PDO mapping, SAFE_OP must fail with 0x0011 and remain in PRE_OP
     s1->setInputPDOMapped(false);
     write8(sim, 1, ::kickcat::reg::AL_CONTROL, static_cast<uint8_t>(::kickcat::State::SAFE_OP));
     read16(sim, 1, ::kickcat::reg::AL_STATUS, al_status);
-    EXPECT_EQ(al_status & 0x00FF, static_cast<uint8_t>(::kickcat::State::INIT));
+    EXPECT_EQ(al_status & 0x000F, static_cast<uint8_t>(::kickcat::State::PRE_OP));
+    EXPECT_NE(al_status & static_cast<uint16_t>(::kickcat::State::ACK), 0u);
     uint16_t al_code = 0;
     read16(sim, 1, ::kickcat::reg::AL_STATUS_CODE, al_code);
     EXPECT_EQ(al_code, 0x0011);
 
-    // OPERATIONAL must also fail with 0x0011 and stay INIT
+    // Acknowledge the error to clear ACK flag and status code
+    write8(sim, 1, ::kickcat::reg::AL_CONTROL,
+           static_cast<uint8_t>(::kickcat::State::INIT) |
+               static_cast<uint8_t>(::kickcat::State::ACK));
+    read16(sim, 1, ::kickcat::reg::AL_STATUS, al_status);
+    EXPECT_EQ(al_status & 0x000F, static_cast<uint8_t>(::kickcat::State::PRE_OP));
+    EXPECT_EQ(al_status & static_cast<uint16_t>(::kickcat::State::ACK), 0u);
+    read16(sim, 1, ::kickcat::reg::AL_STATUS_CODE, al_code);
+    EXPECT_EQ(al_code, 0x0000);
+
+    // OPERATIONAL must also fail with 0x0011 and remain in PRE_OP
     write8(sim, 1, ::kickcat::reg::AL_CONTROL, static_cast<uint8_t>(::kickcat::State::OPERATIONAL));
     read16(sim, 1, ::kickcat::reg::AL_STATUS, al_status);
-    EXPECT_EQ(al_status & 0x00FF, static_cast<uint8_t>(::kickcat::State::INIT));
+    EXPECT_EQ(al_status & 0x000F, static_cast<uint8_t>(::kickcat::State::PRE_OP));
+    EXPECT_NE(al_status & static_cast<uint16_t>(::kickcat::State::ACK), 0u);
     read16(sim, 1, ::kickcat::reg::AL_STATUS_CODE, al_code);
     EXPECT_EQ(al_code, 0x0011);
+
+    // Clear ACK again before enabling PDO mapping
+    write8(sim, 1, ::kickcat::reg::AL_CONTROL,
+           static_cast<uint8_t>(::kickcat::State::INIT) |
+               static_cast<uint8_t>(::kickcat::State::ACK));
+    read16(sim, 1, ::kickcat::reg::AL_STATUS, al_status);
+    EXPECT_EQ(al_status & 0x000F, static_cast<uint8_t>(::kickcat::State::PRE_OP));
+    EXPECT_EQ(al_status & static_cast<uint16_t>(::kickcat::State::ACK), 0u);
+    read16(sim, 1, ::kickcat::reg::AL_STATUS_CODE, al_code);
+    EXPECT_EQ(al_code, 0x0000);
 
     // When mapping is ready, SAFE_OP succeeds and clears status code
     s1->setInputPDOMapped(true);
     write8(sim, 1, ::kickcat::reg::AL_CONTROL, static_cast<uint8_t>(::kickcat::State::SAFE_OP));
     read16(sim, 1, ::kickcat::reg::AL_STATUS, al_status);
-    EXPECT_EQ(al_status & 0x00FF, static_cast<uint8_t>(::kickcat::State::SAFE_OP));
+    EXPECT_EQ(al_status & 0x000F, static_cast<uint8_t>(::kickcat::State::SAFE_OP));
+    EXPECT_EQ(al_status & static_cast<uint16_t>(::kickcat::State::ACK), 0u);
     read16(sim, 1, ::kickcat::reg::AL_STATUS_CODE, al_code);
     EXPECT_EQ(al_code, 0x0000);
 }

@@ -6,6 +6,7 @@
 #include "kickcat/protocol.h"
 
 #include "ethercat_sim/communication/ethercat_frame.h"
+#include "framework/logger/logger.h"
 
 namespace ethercat_sim::kickcat
 {
@@ -48,6 +49,9 @@ int32_t SimSocket::write(uint8_t const* frame, int32_t frame_size)
         }
 
         uint16_t ack = 0;
+        ethercat_sim::framework::logger::Logger::debug(
+            "SimSocket datagram cmd=%d addr=0x%X len=%u", static_cast<int>(hdr->command),
+            hdr->address, static_cast<unsigned>(hdr->len));
         switch (hdr->command)
         {
         case ::kickcat::Command::BRD:
@@ -81,13 +85,27 @@ int32_t SimSocket::write(uint8_t const* frame, int32_t frame_size)
             bool ok         = false;
             switch (hdr->command)
             {
-            case ::kickcat::Command::FPRD:
+        case ::kickcat::Command::FPRD:
                 ok = sim_->readFromSlave(adp, ado, data, hdr->len);
+                if (ok && ado == ::kickcat::reg::AL_STATUS && hdr->len >= 2)
+                {
+                    uint16_t status = static_cast<uint16_t>(data[0]) |
+                                      (static_cast<uint16_t>(data[1]) << 8);
+                    ethercat_sim::framework::logger::Logger::debug(
+                        "SimSocket read AL_STATUS slave=%u value=0x%04X", adp, status);
+                }
+                if (ok && ado == ::kickcat::reg::AL_STATUS_CODE && hdr->len >= 2)
+                {
+                    uint16_t code = static_cast<uint16_t>(data[0]) |
+                                    (static_cast<uint16_t>(data[1]) << 8);
+                    ethercat_sim::framework::logger::Logger::debug(
+                        "SimSocket read AL_STATUS_CODE slave=%u value=0x%04X", adp, code);
+                }
                 break;
-            case ::kickcat::Command::FPWR:
+        case ::kickcat::Command::FPWR:
                 ok = sim_->writeToSlave(adp, ado, data, hdr->len);
                 break;
-            case ::kickcat::Command::FPRW:
+        case ::kickcat::Command::FPRW:
             {
                 // read then write back provided payload
                 // minimal behavior: perform write and report success
@@ -124,6 +142,20 @@ int32_t SimSocket::write(uint8_t const* frame, int32_t frame_size)
             {
             case ::kickcat::Command::APRD:
                 ok = sim_->readFromSlaveByIndex(idx, ado, data, hdr->len);
+                if (ok && ado == ::kickcat::reg::AL_STATUS && hdr->len >= 2)
+                {
+                    uint16_t status = static_cast<uint16_t>(data[0]) |
+                                      (static_cast<uint16_t>(data[1]) << 8);
+                    ethercat_sim::framework::logger::Logger::debug(
+                        "SimSocket APRD AL_STATUS index=%zu value=0x%04X", idx, status);
+                }
+                if (ok && ado == ::kickcat::reg::AL_STATUS_CODE && hdr->len >= 2)
+                {
+                    uint16_t code = static_cast<uint16_t>(data[0]) |
+                                    (static_cast<uint16_t>(data[1]) << 8);
+                    ethercat_sim::framework::logger::Logger::debug(
+                        "SimSocket APRD AL_STATUS_CODE index=%zu value=0x%04X", idx, code);
+                }
                 break;
             case ::kickcat::Command::APWR:
                 ok = sim_->writeToSlaveByIndex(idx, ado, data, hdr->len);
@@ -169,6 +201,17 @@ int32_t SimSocket::write(uint8_t const* frame, int32_t frame_size)
         if (wkc)
         {
             *wkc = ack;
+        }
+        if (ack == 0)
+        {
+            ethercat_sim::framework::logger::Logger::warn(
+                "SimSocket WKC zero for cmd=%d addr=0x%X len=%u", static_cast<int>(hdr->command),
+                hdr->address, static_cast<unsigned>(hdr->len));
+        }
+        else
+        {
+            ethercat_sim::framework::logger::Logger::debug(
+                "SimSocket response cmd=%d ack=%u", static_cast<int>(hdr->command), ack);
         }
     }
 

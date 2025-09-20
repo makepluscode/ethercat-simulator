@@ -1,29 +1,29 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- Core library code lives in `include/` and `core/`, covering Kickcat adapters and the simulator runtime.
-- Applications ship from `src/a-master/` (EtherCAT master) and `src/a-slaves/` (virtual slaves). Examples and tests reside in `examples/` and `tests/`; optional UIs live under `tui/`, `gui/desktop/`, and `gui/web/`.
-- Build tooling sits at the root (`CMakeLists.txt`, `conanfile.py`, helper scripts). Treat new modules as subdirectories with their own CMake targets.
+- Core logic resides in `include/` and `core/`, covering Kickcat adapters and the simulator runtime.
+- Runtime applications live in `src/a-master/` (EtherCAT master) and `src/a-slaves/` (virtual slaves); examples sit in `examples/`, tests in `tests/`, and optional UIs under `tui/`, `gui/desktop/`, and `gui/web/`.
+- Treat new modules as subdirectories with dedicated CMake targets; update the root `CMakeLists.txt` and related build scripts accordingly.
 
 ## Build, Test, and Development Commands
-- `./build.sh` builds `a-master` and `a-slaves` (use `--debug` for Debug, `--clean` to reset artifacts).
-- `./test.sh` configures `build-tests/`, compiles all examples and GoogleTests, then runs `ctest`.
-- Runtime basics: `build/src/a-slaves/a-slaves --uds /tmp/ethercat_bus.sock --count 1` and `build/src/a-master/a-master --uds /tmp/ethercat_bus.sock`. For remote sessions, switch to TCP options noted in the scripts.
+- `./build.sh` builds `a-master` and `a-slaves`; pass `--debug` for Debug artifacts and `--clean` to reset outputs.
+- `./test.sh` configures `build-tests/`, compiles examples and GoogleTests, then invokes `ctest`.
+- Run the stack locally with `build/src/a-slaves/a-slaves --uds /tmp/ethercat_bus.sock --count 1` followed by `build/src/a-master/a-master --uds /tmp/ethercat_bus.sock`.
 
 ## Coding Style & Naming Conventions
-- C++17+, 4-space indent, LF endings, UTF-8. Prefer RAII and smart pointers; add `noexcept` when practical.
-- Namespaces start at `ethercat_sim` with submodules like `simulation`, `communication`, or `kickcat`; avoid `using namespace` at file scope.
-- Types use `PascalCase`, functions `camelCase`, files and namespaces `lower_snake_case`, constants/macros `UPPER_SNAKE_CASE`.
-- Run `clang-format -i <files>` (LLVM style, 100 columns) before submitting.
+- Use C++17+ with 4-space indentation, LF endings, UTF-8 encoding, and RAII-centric design.
+- Namespaces start at `ethercat_sim`; types use `PascalCase`, functions `camelCase`, and files `lower_snake_case`.
+- Format C++ with `clang-format -i <files>` (LLVM style, 100 columns) before submitting.
 
 ## Testing Guidelines
-- Tests live in `tests/<area>/test_*.cpp` and use GoogleTest. Name cases `SuiteName.MethodName_State_ExpectedBehavior`.
-- Execute `ctest --test-dir build-tests --output-on-failure`. Target ≥80% coverage for simulation-critical logic; add regression tests when fixing bugs.
+- Tests reside in `tests/<area>/test_*.cpp` and use GoogleTest.
+- Name tests `SuiteName.MethodName_State_ExpectedBehavior`; aim for ≥80% coverage on simulation-critical logic.
+- Execute `ctest --test-dir build-tests --output-on-failure` to validate before pushing.
 
 ## Commit & Pull Request Guidelines
-- Follow `type(scope): summary` commit messages (e.g., `feat(core): add virtual bus socket`) and reference issues like `#123` when relevant.
-- Pull requests should summarize motivation, list key changes, include build/test evidence, and attach screenshots or logs for UI or simulation output.
+- Follow `type(scope): summary` commit messages (e.g., `feat(core): add virtual bus socket`) and reference issues like `#123` when applicable.
+- Pull requests should describe motivation, list key changes, include build/test evidence, and attach logs or screenshots for UI or simulation output.
 
 ## Security & Configuration Tips
-- Simulator runs unprivileged on Linux/WSL; document any `sysctl` or capability tweaks if you enable real-time behavior.
-- Avoid storing secrets; prefer environment variables or local config files for credentials or tokens.
+- Run the simulator unprivileged on Linux/WSL; document any `sysctl` or capability adjustments when enabling real-time behavior.
+- Avoid storing secrets in the repo; prefer environment variables or local config files for credentials.
