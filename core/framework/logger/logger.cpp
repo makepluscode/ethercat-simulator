@@ -6,8 +6,8 @@ namespace ethercat_sim::framework::logger
 {
 
 // Static member definitions
-LogLevel Logger::current_level_ = LogLevel::INFO;
-std::string Logger::current_component_ = "ecat-simul";
+LogLevel Logger::current_level_ = LogLevel::DEBUG;
+std::string Logger::current_component_ = "default";
 std::ostream* Logger::output_stream_ = &std::cout;
 bool Logger::timestamp_enabled_ = true;
 std::mutex Logger::log_mutex_;
@@ -74,17 +74,18 @@ void Logger::log(LogLevel level, const std::string& message)
         oss << "[" << formatTimestamp() << "] ";
     }
 
-    // Add log level
-    oss << "[" << levelToString(level) << "] ";
+    // Add log level with padding
+    std::string level_str = levelToString(level);
+    oss << "[" << std::setw(5) << std::left << level_str << "] ";
 
-    // Add component
-    oss << "[" << current_component_ << "] ";
+    // Add component with padding
+    oss << "[" << std::setw(6) << std::left << current_component_ << "] ";
 
     // Add message
     oss << message;
 
-    // Output to stream
-    *output_stream_ << oss.str() << std::endl;
+    // Output to stream with consistent formatting
+    *output_stream_ << oss.str() << "\n";
     output_stream_->flush();
 }
 
