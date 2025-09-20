@@ -13,8 +13,8 @@ USAGE
 
 if [[ $# -gt 0 && "$1" == "test" ]]; then
   shift
-  echo "[a-main.sh] Running unit tests (MainSlaveFixture)..."
-  ./test.sh -R MainSlaveFixture "$@"
+  echo "[master.sh] Running unit tests (MasterSlaveFixture)..."
+  ./test.sh -R MasterSlaveFixture "$@"
   exit $?
 fi
 
@@ -47,7 +47,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Build binary if missing
-BIN="${BUILD_DIR}/src/a-main/a-main"
+BIN="${BUILD_DIR}/apps/master/master"
 if [[ ! -x "${BIN}" ]]; then
   echo "[build] ${BIN} not found. Building apps..."
   if [[ ${DO_DEBUG} -eq 1 ]]; then ./build.sh --debug; else ./build.sh; fi
@@ -64,7 +64,7 @@ else
 fi
 
 if [[ ${NO_ARGS} -eq 1 ]]; then
-  echo "[a-main.sh] No arguments provided. Using defaults: ${MODE} ${ARG}, cycle=${CYCLE}"
+  echo "[master.sh] No arguments provided. Using defaults: ${MODE} ${ARG}, cycle=${CYCLE}"
 fi
 CMD=("${BIN}" "${MODE}" "${ARG}" "--cycle" "${CYCLE}")
 if [[ ${HEADLESS} -eq 1 ]]; then
@@ -73,6 +73,6 @@ fi
 if [[ ${AUTO} -eq 0 ]]; then
   CMD+=("--no-auto")
 fi
-echo "[a-main.sh] Running: ${CMD[*]}"
-echo "[a-main.sh] Logging to a-main.log"
-exec "${CMD[@]}" 2>&1 | tee a-main.log
+echo "[master.sh] Running: ${CMD[*]}"
+echo "[master.sh] Logging to master.log"
+exec "${CMD[@]}" 2>&1 | tee master.log

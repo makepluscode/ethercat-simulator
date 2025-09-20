@@ -13,7 +13,7 @@ USAGE
 
 if [[ $# -gt 0 && "$1" == "test" ]]; then
   shift
-  echo "[a-slaves.sh] Running unit tests (MasterSlaveFixture)..."
+  echo "[slaves.sh] Running unit tests (MasterSlaveFixture)..."
   ./test.sh -R MasterSlaveFixture "$@"
   exit $?
 fi
@@ -45,7 +45,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Build binary if missing
-BIN="${BUILD_DIR}/src/a-subs/a-subs"
+BIN="${BUILD_DIR}/apps/slaves/slaves"
 if [[ ! -x "${BIN}" ]]; then
   echo "[build] ${BIN} not found. Building apps..."
   if [[ ${DO_DEBUG} -eq 1 ]]; then ./build.sh --debug; else ./build.sh; fi
@@ -64,12 +64,12 @@ else
 fi
 
 if [[ ${NO_ARGS} -eq 1 ]]; then
-  echo "[a-subs.sh] No arguments provided. Using defaults: ${MODE} ${ARG}, count=${COUNT}"
+  echo "[slaves.sh] No arguments provided. Using defaults: ${MODE} ${ARG}, count=${COUNT}"
 fi
 CMD=("${BIN}" "${MODE}" "${ARG}" "--count" "${COUNT}")
 if [[ ${HEADLESS} -eq 1 ]]; then
   CMD+=("--headless")
 fi
-echo "[a-subs.sh] Running: ${CMD[*]}"
-echo "[a-subs.sh] Logging to a-subs.log"
-exec "${CMD[@]}" 2>&1 | tee a-subs.log
+echo "[slaves.sh] Running: ${CMD[*]}"
+echo "[slaves.sh] Logging to slaves.log"
+exec "${CMD[@]}" 2>&1 | tee slaves.log
