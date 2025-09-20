@@ -68,10 +68,10 @@ void Logger::log(LogLevel level, const std::string& message)
 
     std::ostringstream oss;
 
-    // Add timestamp if enabled
+    // Add timestamp if enabled (more compact format)
     if (timestamp_enabled_)
     {
-        oss << "[" << formatTimestamp() << "] ";
+        oss << formatTimestamp() << " ";
     }
 
     // Add log level with padding
