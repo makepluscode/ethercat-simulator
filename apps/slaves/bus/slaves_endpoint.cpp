@@ -1,4 +1,4 @@
-#include "bus/subs_endpoint.h"
+#include "bus/slaves_endpoint.h"
 
 #include <cstring>
 #include <thread>
@@ -23,11 +23,11 @@
 namespace ethercat_sim::bus {
 
 
-bool SubsEndpoint::bindUDS_(const std::string& path)
+bool SlavesEndpoint::bindUDS_(const std::string& path)
 {
     listen_fd_ = ::socket(AF_UNIX, SOCK_STREAM, 0);
     if (listen_fd_ < 0) {
-        std::cerr << "[a-subs] Failed to create socket: " << strerror(errno) << "\n";
+        std::cerr << "[a-slaves] Failed to create socket: " << strerror(errno) << "\n";
         return false;
     }
 
@@ -48,20 +48,20 @@ bool SubsEndpoint::bindUDS_(const std::string& path)
         len = static_cast<socklen_t>(offsetof(sockaddr_un, sun_path) + std::strlen(addr.sun_path));
     }
     if (::bind(listen_fd_, reinterpret_cast<sockaddr*>(&addr), len) < 0) {
-        std::cerr << "[a-subs] Failed to bind socket: " << strerror(errno) << "\n";
+        std::cerr << "[a-slaves] Failed to bind socket: " << strerror(errno) << "\n";
         ::close(listen_fd_);
         return false;
     }
     if (::listen(listen_fd_, 1) < 0) {
-        std::cerr << "[a-subs] Failed to listen on socket: " << strerror(errno) << "\n";
+        std::cerr << "[a-slaves] Failed to listen on socket: " << strerror(errno) << "\n";
         ::close(listen_fd_);
         return false;
     }
-    std::cout << "[a-subs] Socket bound and listening, fd=" << listen_fd_ << "\n";
+    std::cout << "[a-slaves] Socket bound and listening, fd=" << listen_fd_ << "\n";
     return true;
 }
 
-bool SubsEndpoint::bindTCP_(const std::string& host, uint16_t port)
+bool SlavesEndpoint::bindTCP_(const std::string& host, uint16_t port)
 {
     listen_fd_ = ::socket(AF_INET, SOCK_STREAM, 0);
     if (listen_fd_ < 0) return false;
@@ -107,13 +107,13 @@ static bool write_exact_nb(int fd, const void* buf, size_t len, std::atomic_bool
     return true;
 }
 
-bool SubsEndpoint::handleClient_(int fd)
+bool SlavesEndpoint::handleClient_(int fd)
 {
     // Prepare simulator with N slaves
     sim_->initialize("");
     sim_->clearSlaves();
     // Create N EL1258-like virtual slaves with station addresses starting at 1
-    for (std::size_t i = 0; i < subs_count_; ++i) {
+    for (std::size_t i = 0; i < slaves_count_; ++i) {
         auto s = std::make_shared<ethercat_sim::subs::El1258Subs>(static_cast<uint16_t>(1 + i), 0x00000000, 0x00001258);
         sim_->addVirtualSlave(std::move(s));
     }
@@ -142,7 +142,7 @@ bool SubsEndpoint::handleClient_(int fd)
     }
 }
 
-void SubsEndpoint::processFrame_(uint8_t* frame, int32_t frame_size)
+void SlavesEndpoint::processFrame_(uint8_t* frame, int32_t frame_size)
 {
     ::kickcat::Frame f(frame, frame_size);
     static bool dbg = []{ const char* e = std::getenv("EC_DEBUG"); return e && *e; }();
@@ -159,12 +159,12 @@ void SubsEndpoint::processFrame_(uint8_t* frame, int32_t frame_size)
         uint16_t ack = 0;
         switch (hdr->command) {
             case ::kickcat::Command::NOP: {
-                ack = 0; if (dbg) { std::cerr << "[a-subs][DBG] NOP" << std::endl; } break;
+                ack = 0; if (dbg) { std::cerr << "[a-slaves][DBG] NOP" << std::endl; } break;
             }
             case ::kickcat::Command::BRD: {
                 auto n = static_cast<uint16_t>(sim_->onlineSlaveCount());
                 ack = (n == 0) ? 1 : n; // ensure >0 to help initial detection
-                if (dbg) { std::cerr << "[a-subs][DBG] BRD len=" << hdr->len << " wkc->" << ack << " online=" << sim_->onlineSlaveCount() << std::endl; }
+                if (dbg) { std::cerr << "[a-slaves][DBG] BRD len=" << hdr->len << " wkc->" << ack << " online=" << sim_->onlineSlaveCount() << std::endl; }
                 break;
             }
             case ::kickcat::Command::BWR:
@@ -187,7 +187,7 @@ void SubsEndpoint::processFrame_(uint8_t* frame, int32_t frame_size)
                             value |= static_cast<uint16_t>(data[1]) << 8;
                         }
                     }
-                    std::cerr << "[a-subs][DBG] BWR/BRW ado=0x" << std::hex << ado << std::dec
+                    std::cerr << "[a-slaves][DBG] BWR/BRW ado=0x" << std::hex << ado << std::dec
                               << " len=" << hdr->len << " value=0x" << std::hex << value << std::dec
                               << " wkc=" << ack << std::endl;
                 }
@@ -203,7 +203,7 @@ void SubsEndpoint::processFrame_(uint8_t* frame, int32_t frame_size)
                 else ok = sim_->writeToSlave(adp, ado, data, hdr->len);
                 ack = ok ? 1 : 0;
                 if (dbg) {
-                    std::cerr << "[a-subs][DBG] "
+                    std::cerr << "[a-slaves][DBG] "
                               << (hdr->command == ::kickcat::Command::FPRD ? "FPRD" : (hdr->command == ::kickcat::Command::FPWR ? "FPWR" : "FPRW"))
                               << " adp=" << adp << " ado=0x" << std::hex << ado << std::dec
                               << " ok=" << ok << " wkc=" << ack;
@@ -222,7 +222,7 @@ void SubsEndpoint::processFrame_(uint8_t* frame, int32_t frame_size)
                 bool ok = false;
                 if (hdr->command == ::kickcat::Command::APRD) ok = sim_->readFromSlaveByIndex(idx, ado, data, hdr->len);
                 else ok = sim_->writeToSlaveByIndex(idx, ado, data, hdr->len);
-                ack = ok ? 1 : 0; if (dbg) { std::cerr << "[a-subs][DBG] APRD/APWR/APRW idx=" << idx << " ado=0x" << std::hex << ado << std::dec << " ok=" << ok << " wkc=" << ack << std::endl; } break;
+                ack = ok ? 1 : 0; if (dbg) { std::cerr << "[a-slaves][DBG] APRD/APWR/APRW idx=" << idx << " ado=0x" << std::hex << ado << std::dec << " ok=" << ok << " wkc=" << ack << std::endl; } break;
             }
             case ::kickcat::Command::LRD:
             case ::kickcat::Command::LWR:
@@ -230,15 +230,15 @@ void SubsEndpoint::processFrame_(uint8_t* frame, int32_t frame_size)
                 uint32_t logical = hdr->address; bool ok = false;
                 if (hdr->command == ::kickcat::Command::LRD) ok = sim_->readLogical(logical, data, hdr->len);
                 else ok = sim_->writeLogical(logical, data, hdr->len);
-                ack = ok ? 1 : 0; if (dbg) { std::cerr << "[a-subs][DBG] LRD/LWR/LRW logical=0x" << std::hex << logical << std::dec << " len=" << hdr->len << " ok=" << ok << " wkc=" << ack << std::endl; } break;
+                ack = ok ? 1 : 0; if (dbg) { std::cerr << "[a-slaves][DBG] LRD/LWR/LRW logical=0x" << std::hex << logical << std::dec << " len=" << hdr->len << " ok=" << ok << " wkc=" << ack << std::endl; } break;
             }
             case ::kickcat::Command::ARMW:
             case ::kickcat::Command::FRMW: {
                 auto n = static_cast<uint16_t>(sim_->onlineSlaveCount());
-                ack = (n == 0) ? 1 : n; if (dbg) { std::cerr << "[a-subs][DBG] ARMW/FRMW wkc->" << ack << std::endl; } break;
+                ack = (n == 0) ? 1 : n; if (dbg) { std::cerr << "[a-slaves][DBG] ARMW/FRMW wkc->" << ack << std::endl; } break;
             }
             default: {
-                ack = (sim_->onlineSlaveCount() > 0) ? 1 : 0; if (dbg) { std::cerr << "[a-subs][DBG] OTHER cmd=" << (int)hdr->command << " wkc=" << ack << std::endl; } break;
+                ack = (sim_->onlineSlaveCount() > 0) ? 1 : 0; if (dbg) { std::cerr << "[a-slaves][DBG] OTHER cmd=" << (int)hdr->command << " wkc=" << ack << std::endl; } break;
             }
         }
         if (wkc) { *wkc = ack; }
@@ -248,44 +248,44 @@ void SubsEndpoint::processFrame_(uint8_t* frame, int32_t frame_size)
     std::memcpy(frame, f.data(), static_cast<std::size_t>(frame_size));
 }
 
-bool SubsEndpoint::run()
+bool SlavesEndpoint::run()
 {
-    std::cout << "[a-subs] SubsEndpoint::run() started with endpoint: " << endpoint_ << "\n";
+    std::cout << "[a-slaves] SubsEndpoint::run() started with endpoint: " << endpoint_ << "\n";
     std::string path, host; uint16_t port = 0;
     if (communication::EndpointParser::parseUdsEndpoint(endpoint_, path)) {
-        std::cout << "[a-subs] Parsed UDS endpoint, path: " << path << "\n";
+        std::cout << "[a-slaves] Parsed UDS endpoint, path: " << path << "\n";
         if (!bindUDS_(path)) {
-            std::cerr << "[a-subs] Failed to bind UDS at " << path << "\n";
+            std::cerr << "[a-slaves] Failed to bind UDS at " << path << "\n";
             return false;
         }
-        std::cout << "[a-subs] Successfully bound and listening UDS " << path << "\n";
+        std::cout << "[a-slaves] Successfully bound and listening UDS " << path << "\n";
     }
     else if (communication::EndpointParser::parseTcpEndpoint(endpoint_, host, port)) {
-        std::cout << "[a-subs] Parsed TCP endpoint, host: " << host << ", port: " << port << "\n";
+        std::cout << "[a-slaves] Parsed TCP endpoint, host: " << host << ", port: " << port << "\n";
         if (!bindTCP_(host, port)) {
-            std::cerr << "[a-subs] Failed to bind TCP at " << host << ":" << port << "\n";
+            std::cerr << "[a-slaves] Failed to bind TCP at " << host << ":" << port << "\n";
             return false;
         }
-        std::cout << "[a-subs] Successfully bound and listening TCP " << host << ":" << port << "\n";
+        std::cout << "[a-slaves] Successfully bound and listening TCP " << host << ":" << port << "\n";
     }
     else {
-        std::cerr << "[a-subs] Unsupported endpoint: " << endpoint_ << "\n";
+        std::cerr << "[a-slaves] Unsupported endpoint: " << endpoint_ << "\n";
         return false;
     }
 
     // Accept loop with poll to allow graceful stop
-    std::cout << "[a-subs] Entering accept loop, waiting for connections...\n";
+    std::cout << "[a-slaves] Entering accept loop, waiting for connections...\n";
     int fd = -1;
     while (true) {
         if (stop_ && stop_->load()) {
-            std::cout << "[a-subs] Stop requested, exiting accept loop\n";
+            std::cout << "[a-slaves] Stop requested, exiting accept loop\n";
             fd = -1;
             break;
         }
         struct pollfd pfd{listen_fd_, POLLIN, 0};
         int pr = ::poll(&pfd, 1, 200);
         if (pr < 0) {
-            std::cerr << "[a-subs] Poll error: " << strerror(errno) << "\n";
+            std::cerr << "[a-slaves] Poll error: " << strerror(errno) << "\n";
             fd = -1;
             break;
         }
@@ -293,12 +293,12 @@ bool SubsEndpoint::run()
         if (pfd.revents & POLLIN) {
             sockaddr_storage peer{}; socklen_t plen = sizeof(peer);
             fd = ::accept(listen_fd_, reinterpret_cast<sockaddr*>(&peer), &plen);
-            std::cout << "[a-subs] Accept returned fd=" << fd << "\n";
+            std::cout << "[a-slaves] Accept returned fd=" << fd << "\n";
             break;
         }
     }
     if (stop_ && stop_->load()) {
-        std::cout << "[a-subs] Stop requested before client connect\n";
+        std::cout << "[a-slaves] Stop requested before client connect\n";
         if (listen_fd_ != -1) ::close(listen_fd_);
         if (!uds_is_abstract_ && !bound_disk_path_.empty()) ::unlink(bound_disk_path_.c_str());
         return true;
@@ -308,7 +308,7 @@ bool SubsEndpoint::run()
         if (!uds_is_abstract_ && !bound_disk_path_.empty()) ::unlink(bound_disk_path_.c_str());
         return false;
     }
-    std::cout << "[a-subs] Client connected\n";
+    std::cout << "[a-slaves] Client connected\n";
     if (on_connection_) on_connection_(true);
     bool ok = handleClient_(fd);
     ::close(fd);

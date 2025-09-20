@@ -1,4 +1,4 @@
-#include "bus/main_socket.h"
+#include "bus/master_socket.h"
 
 #include <cstring>
 #include <string_view>
@@ -18,31 +18,31 @@
 namespace ethercat_sim::bus {
 
 
-void MainSocket::open(std::string const& /*interface*/)
+void MasterSocket::open(std::string const& /*interface*/)
 {
     if (fd_ != -1) return;
-    std::cout << "[a-main] MainSocket::open() endpoint: " << endpoint_ << "\n";
+    std::cout << "[a-master] MasterSocket::open() endpoint: " << endpoint_ << "\n";
     std::string path, host; uint16_t port = 0;
     if (communication::EndpointParser::parseUdsEndpoint(endpoint_, path)) {
-        std::cout << "[a-main] Connecting to UDS: " << path << "\n";
+        std::cout << "[a-master] Connecting to UDS: " << path << "\n";
         if (!connectUDS_(path)) {
-            throw std::runtime_error("MainSocket: UDS connect failed");
+            throw std::runtime_error("MasterSocket: UDS connect failed");
         }
-        std::cout << "[a-main] Successfully connected to UDS\n";
+        std::cout << "[a-master] Successfully connected to UDS\n";
     }
     else if (communication::EndpointParser::parseTcpEndpoint(endpoint_, host, port)) {
-        std::cout << "[a-main] Connecting to TCP: " << host << ":" << port << "\n";
+        std::cout << "[a-master] Connecting to TCP: " << host << ":" << port << "\n";
         if (!connectTCP_(host, port)) {
-            throw std::runtime_error("MainSocket: TCP connect failed");
+            throw std::runtime_error("MasterSocket: TCP connect failed");
         }
-        std::cout << "[a-main] Successfully connected to TCP\n";
+        std::cout << "[a-master] Successfully connected to TCP\n";
     }
     else {
-        throw std::invalid_argument("MainSocket: unsupported endpoint (use uds:// or tcp://)");
+        throw std::invalid_argument("MasterSocket: unsupported endpoint (use uds:// or tcp://)");
     }
 }
 
-void MainSocket::setTimeout(std::chrono::nanoseconds timeout)
+void MasterSocket::setTimeout(std::chrono::nanoseconds timeout)
 {
     timeout_ = timeout;
     if (fd_ == -1) return;
@@ -53,7 +53,7 @@ void MainSocket::setTimeout(std::chrono::nanoseconds timeout)
     setsockopt(fd_, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
 }
 
-void MainSocket::close() noexcept
+void MasterSocket::close() noexcept
 {
     if (fd_ != -1) {
         ::close(fd_);
@@ -61,7 +61,7 @@ void MainSocket::close() noexcept
     }
 }
 
-int32_t MainSocket::write(uint8_t const* frame, int32_t frame_size)
+int32_t MasterSocket::write(uint8_t const* frame, int32_t frame_size)
 {
     if (fd_ == -1) return -1;
     uint16_t be_len = htons(static_cast<uint16_t>(frame_size));
@@ -70,7 +70,7 @@ int32_t MainSocket::write(uint8_t const* frame, int32_t frame_size)
     return frame_size;
 }
 
-int32_t MainSocket::read(uint8_t* frame, int32_t frame_size)
+int32_t MasterSocket::read(uint8_t* frame, int32_t frame_size)
 {
     if (fd_ == -1) return -1;
     uint16_t be_len = 0;
@@ -86,11 +86,11 @@ int32_t MainSocket::read(uint8_t* frame, int32_t frame_size)
     return static_cast<int32_t>(len);
 }
 
-bool MainSocket::connectUDS_(const std::string& path)
+bool MasterSocket::connectUDS_(const std::string& path)
 {
     fd_ = ::socket(AF_UNIX, SOCK_STREAM, 0);
     if (fd_ < 0) {
-        std::cerr << "[a-main] Failed to create socket: " << std::strerror(errno) << "\n";
+        std::cerr << "[a-master] Failed to create socket: " << std::strerror(errno) << "\n";
         return false;
     }
 
@@ -108,14 +108,14 @@ bool MainSocket::connectUDS_(const std::string& path)
         len = static_cast<socklen_t>(offsetof(sockaddr_un, sun_path) + std::strlen(addr.sun_path));
     }
     if (::connect(fd_, reinterpret_cast<sockaddr*>(&addr), len) < 0) {
-        std::cerr << "[a-main] Failed to connect to " << path << ": " << std::strerror(errno) << "\n";
+        std::cerr << "[a-master] Failed to connect to " << path << ": " << std::strerror(errno) << "\n";
         ::close(fd_); fd_ = -1; return false;
     }
     setTimeout(timeout_);
     return true;
 }
 
-bool MainSocket::connectTCP_(const std::string& host, uint16_t port)
+bool MasterSocket::connectTCP_(const std::string& host, uint16_t port)
 {
     fd_ = ::socket(AF_INET, SOCK_STREAM, 0);
     if (fd_ < 0) return false;
@@ -130,7 +130,7 @@ bool MainSocket::connectTCP_(const std::string& host, uint16_t port)
     return true;
 }
 
-bool MainSocket::writeAll_(const void* data, size_t len)
+bool MasterSocket::writeAll_(const void* data, size_t len)
 {
     const uint8_t* p = static_cast<const uint8_t*>(data);
     size_t left = len;
@@ -142,7 +142,7 @@ bool MainSocket::writeAll_(const void* data, size_t len)
     return true;
 }
 
-bool MainSocket::readAll_(void* data, size_t len)
+bool MasterSocket::readAll_(void* data, size_t len)
 {
     uint8_t* p = static_cast<uint8_t*>(data);
     size_t left = len;

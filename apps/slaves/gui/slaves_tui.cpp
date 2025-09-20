@@ -1,10 +1,10 @@
-#include "mvc/view/subs_tui.h"
+#include "slaves_tui.h"
 
 #include <chrono>
 #include <thread>
 
-#include "mvc/controller/subs_controller.h"
-#include "mvc/model/subs_model.h"
+#include "logic/slaves_controller.h"
+#include "logic/slaves_model.h"
 
 #include "ftxui/component/screen_interactive.hpp"
 #include "ftxui/component/component.hpp"
@@ -13,10 +13,10 @@
 using namespace ftxui;
 using namespace std::chrono_literals;
 
-namespace ethercat_sim::app::subs {
+namespace ethercat_sim::app::slaves {
 
-void run_subs_tui(std::shared_ptr<SubsController> controller,
-                   std::shared_ptr<SubsModel> model,
+void run_slaves_tui(std::shared_ptr<SlavesController> controller,
+                    std::shared_ptr<SlavesModel> model,
                    bool smoke_test)
 {
     (void)controller; // no interactions yet

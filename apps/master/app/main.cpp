@@ -7,10 +7,10 @@
 #include <unistd.h>
 
 #include "ethercat_sim/app/cli_runtime.h"
-#include "mvc/controller/main_controller.h"
-#include "mvc/model/main_model.h"
+#include "logic/master_controller.h"
+#include "logic/master_model.h"
 #if HAVE_FTXUI
-#include "mvc/view/main_tui.h"
+#include "gui/master_tui.h"
 #endif
 
 static void usage(const char* argv0) {
@@ -20,7 +20,7 @@ static void usage(const char* argv0) {
 
 namespace {
 
-bool runAutoSequence(const std::shared_ptr<ethercat_sim::app::main::MainController>& controller) {
+bool runAutoSequence(const std::shared_ptr<ethercat_sim::app::master::MasterController>& controller) {
     using namespace std::chrono_literals;
 
     auto model   = controller->model();
@@ -48,7 +48,7 @@ bool runAutoSequence(const std::shared_ptr<ethercat_sim::app::main::MainControll
         "scan", [&] { controller->scan(); },
         [&] {
             auto snap = model->snapshot();
-            return snap.detected_subs > 0 && !snap.subs.empty();
+            return snap.detected_slaves > 0 && !snap.slaves.empty();
         });
     if (!scan_ok) {
         return false;
@@ -97,7 +97,7 @@ int main(int argc, char** argv) {
         ethercat_sim::app::installSignalHandlers(stop);
 
         auto controller =
-            std::make_shared<ethercat_sim::app::main::MainController>(endpoint, cycle_us);
+            std::make_shared<ethercat_sim::app::master::MasterController>(endpoint, cycle_us);
         controller->start();
 
         bool auto_ok = true;
@@ -119,7 +119,7 @@ int main(int argc, char** argv) {
 #endif
 #if HAVE_FTXUI
         if (interactive) {
-            ethercat_sim::app::main::run_main_tui(controller, controller->model(), false);
+            ethercat_sim::app::master::run_master_tui(controller, controller->model(), false);
             stop.store(true);
         } else
 #endif

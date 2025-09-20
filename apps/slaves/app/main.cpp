@@ -5,10 +5,10 @@
 #include <thread>
 #include <unistd.h>
 
-#include "mvc/controller/subs_controller.h"
-#include "mvc/model/subs_model.h"
+#include "logic/slaves_controller.h"
+#include "logic/slaves_model.h"
 #if HAVE_FTXUI
-#include "mvc/view/subs_tui.h"
+#include "gui/slaves_tui.h"
 #endif
 
 #include "ethercat_sim/app/cli_runtime.h"
@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
     static std::atomic_bool stop{false};
     ethercat_sim::app::installSignalHandlers(stop);
 
-    auto controller = std::make_shared<ethercat_sim::app::subs::SubsController>(
+    auto controller = std::make_shared<ethercat_sim::app::slaves::SlavesController>(
         endpoint, static_cast<int>(count));
     controller->start();
     bool smoke = std::getenv("TUI_SMOKE_TEST") != nullptr;
@@ -52,7 +52,7 @@ int main(int argc, char** argv) {
 #endif
 #if HAVE_FTXUI
     if (interactive) {
-        ethercat_sim::app::subs::run_subs_tui(controller, controller->model(), false);
+        ethercat_sim::app::slaves::run_slaves_tui(controller, controller->model(), false);
         stop.store(true);
     } else
 #endif
@@ -71,6 +71,6 @@ int main(int argc, char** argv) {
         }
     }
     controller->stop();
-    std::cout << "[a-subs] Graceful shutdown\n";
+    std::cout << "[a-slaves] Graceful shutdown\n";
     return 0;
 }

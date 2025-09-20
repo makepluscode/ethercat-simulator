@@ -27,7 +27,6 @@ EOF
       ;;
     *) echo "Unknown option: $1" >&2; exit 2 ;;
   esac
-  shift
 done
 
 if [[ ${CLEAN} -eq 1 ]]; then
@@ -46,8 +45,8 @@ if [[ ${USE_CONAN} -eq 1 ]]; then
   echo "[conan] Installing dependencies for ${BUILD_TYPE}"
   # Enable required options so CMake can find dependencies (FastDDS optional)
   conan install . \
-    -o ethercat-simulator*:with_fastdds=True \
-    -o ethercat-simulator*:with_ftxui=True \
+    -o ecat-simul*:with_fastdds=True \
+    -o ecat-simul*:with_ftxui=True \
     -c tools.cmake.cmaketoolchain:generator="Unix Makefiles" \
     -of "${BUILD_DIR}" -s "build_type=${BUILD_TYPE}" --build=missing
   cmake_common_flags+=("-DCMAKE_TOOLCHAIN_FILE=${BUILD_DIR}/conan_toolchain.cmake")
@@ -55,8 +54,8 @@ fi
 
 echo "[cmake] Configuring (${BUILD_TYPE})"
 cmake -S . -B "${BUILD_DIR}" \
-  -DBUILD_EXAMPLES=OFF -DBUILD_TESTING=OFF \
-  -DBUILD_AMAIN=ON -DBUILD_ASUBS=ON \
+  -DBUILD_EXAMPLES=ON -DBUILD_TESTING=ON -DBUILD_MASTER=ON -DBUILD_SLAVES=ON \
+  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
   "${cmake_common_flags[@]}"
 
 echo "[cmake] Building"
@@ -65,6 +64,12 @@ if [[ -d "${BUILD_DIR}/tui/tui" ]]; then
   echo "[warn] Removing stale directory that conflicts with TUI binary: ${BUILD_DIR}/tui/tui"
   rm -rf "${BUILD_DIR}/tui/tui"
 fi
-cmake --build "${BUILD_DIR}" -j --target a-main a-subs
+cmake --build "${BUILD_DIR}" -j --target master slaves
 
-echo "[done] Artifacts in ${BUILD_DIR} (apps in ${BUILD_DIR}/src)"
+# Copy compile_commands.json to root for clangd
+if [[ -f "${BUILD_DIR}/compile_commands.json" ]]; then
+  cp "${BUILD_DIR}/compile_commands.json" .
+  echo "[clangd] Updated compile_commands.json for IDE support"
+fi
+
+echo "[done] Artifacts in ${BUILD_DIR} (apps in ${BUILD_DIR}/apps)"

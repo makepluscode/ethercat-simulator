@@ -1,32 +1,32 @@
-#include "mvc/controller/subs_controller.h"
+#include "slaves_controller.h"
 
 #include <iostream>
 
-namespace ethercat_sim::app::subs {
+namespace ethercat_sim::app::slaves {
 
-void SubsController::start()
+void SlavesController::start()
 {
     if (th_.joinable()) return;
     stop_.store(false);
-    th_ = std::thread(&SubsController::run_, this);
+    th_ = std::thread(&SlavesController::run_, this);
 }
 
-void SubsController::stop()
+void SlavesController::stop()
 {
     stop_.store(true);
     if (th_.joinable()) th_.join();
 }
 
-void SubsController::run_()
+void SlavesController::run_()
 {
     model_->setEndpoint(endpoint_);
     model_->setCount(count_);
     model_->setStatus("starting");
 
-    ethercat_sim::bus::SubsEndpoint ep(endpoint_);
+    ethercat_sim::bus::SlavesEndpoint ep(endpoint_);
     std::atomic_bool stop_flag{false};
     ep.setStopFlag(&stop_flag);
-    ep.setSubsCount(static_cast<std::size_t>(count_));
+    ep.setSlavesCount(static_cast<std::size_t>(count_));
     ep.setConnectionCallback([this](bool connected){ this->model_->setConnected(connected); });
 
     model_->setListening(true);
@@ -44,4 +44,4 @@ void SubsController::run_()
     model_->setStatus("stopped");
 }
 
-} // namespace ethercat_sim::app::subs
+} // namespace ethercat_sim::app::slaves

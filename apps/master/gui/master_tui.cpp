@@ -1,11 +1,11 @@
-#include "mvc/view/main_tui.h"
+#include "master_tui.h"
 
 #include <chrono>
 #include <thread>
 #include <string>
 
-#include "mvc/controller/main_controller.h"
-#include "mvc/model/main_model.h"
+#include "logic/master_controller.h"
+#include "logic/master_model.h"
 
 #include "ftxui/component/captured_mouse.hpp"
 #include "ftxui/component/component.hpp"
@@ -15,10 +15,10 @@
 using namespace ftxui;
 using namespace std::chrono_literals;
 
-namespace ethercat_sim::app::main {
+namespace ethercat_sim::app::master {
 
-void run_main_tui(std::shared_ptr<MainController> controller,
-                    std::shared_ptr<MainModel> model,
+void run_master_tui(std::shared_ptr<MasterController> controller,
+                    std::shared_ptr<MasterModel> model,
                     bool smoke_test)
 {
     auto screen = ScreenInteractive::Fullscreen();
@@ -50,12 +50,12 @@ void run_main_tui(std::shared_ptr<MainController> controller,
     auto renderer = Renderer(inputs, [&] {
         auto snap = model->snapshot();
         auto status = text("status: " + snap.status);
-        if (selected >= static_cast<int>(snap.subs.size())) selected = static_cast<int>(snap.subs.size()) - 1;
+        if (selected >= static_cast<int>(snap.slaves.size())) selected = static_cast<int>(snap.slaves.size()) - 1;
         if (selected < 0) selected = 0;
         std::vector<Element> rows;
         rows.push_back(hbox({ text("Addr") | bold | underlined, text("  "), text("State") | bold | underlined, text("  "), text("AL") | bold | underlined }));
-        for (size_t i = 0; i < snap.subs.size(); ++i) {
-            auto const& r = snap.subs[i];
+        for (size_t i = 0; i < snap.slaves.size(); ++i) {
+            auto const& r = snap.slaves[i];
             auto line = hbox({ text(std::to_string(r.address)), text("  "), text(r.state), text("  "), text(r.al_code) });
             if (static_cast<int>(i) == selected) line = line | inverted;
             rows.push_back(line);
@@ -72,7 +72,7 @@ void run_main_tui(std::shared_ptr<MainController> controller,
         auto info = vbox({
             text("EtherCAT Master"),
             separator(),
-            text("subs: " + std::to_string(snap.detected_subs)),
+            text("slaves: " + std::to_string(snap.detected_slaves)),
             text(std::string("PREOP: ") + (snap.preop ? "yes" : "no")),
             text(std::string("OP: ") + (snap.operational ? "yes" : "no")),
             separator(),

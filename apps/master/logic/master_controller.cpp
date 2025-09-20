@@ -1,4 +1,4 @@
-#include "mvc/controller/main_controller.h"
+#include "master_controller.h"
 
 #include <algorithm>
 #include <chrono>
@@ -12,11 +12,11 @@
 #include "kickcat/DebugHelpers.h"
 #include "kickcat/Link.h"
 
-#include "bus/main_socket.h"
+#include "bus/master_socket.h"
 
 using namespace std::chrono_literals;
 
-namespace ethercat_sim::app::main {
+namespace ethercat_sim::app::master {
 
 namespace {
 
@@ -43,8 +43,8 @@ std::string formatAlStatusCode(uint16_t code) {
     return oss.str();
 }
 
-SubsRow makeRow(kickcat::Slave const& slave) {
-    SubsRow row;
+SlavesRow makeRow(kickcat::Slave const& slave) {
+    SlavesRow row;
     row.address = slave.address;
     row.state   = stateToString(static_cast<kickcat::State>(slave.al_status));
     row.al_code = formatAlStatusCode(slave.al_status_code);
@@ -53,33 +53,33 @@ SubsRow makeRow(kickcat::Slave const& slave) {
 
 } // namespace
 
-MainController::MainController(std::string endpoint, int cycle_us)
+MasterController::MasterController(std::string endpoint, int cycle_us)
     : endpoint_(std::move(endpoint)), cycle_us_(cycle_us) {}
 
-MainController::~MainController() {
+MasterController::~MasterController() {
     stop();
 }
 
-void MainController::start() {
+void MasterController::start() {
     if (th_.joinable()) {
         return;
     }
     stop_.store(false);
-    th_ = std::thread(&MainController::run_, this);
+    th_ = std::thread(&MasterController::run_, this);
 }
 
-void MainController::stop() {
+void MasterController::stop() {
     stop_.store(true);
     if (th_.joinable()) {
         th_.join();
     }
 }
 
-void MainController::ensureBus_() {
+void MasterController::ensureBus_() {
     if (bus_) {
         return;
     }
-    sock_ = std::make_shared<bus::MainSocket>(endpoint_);
+    sock_ = std::make_shared<bus::MasterSocket>(endpoint_);
     sock_->open("");
     sock_->setTimeout(200ms);
     link_ = std::make_shared<kickcat::Link>(sock_, sock_, [] {});
@@ -88,11 +88,11 @@ void MainController::ensureBus_() {
     bus_->configureWaitLatency(1ms, 20ms);
 }
 
-int32_t MainController::detectSlavesWithRetries_(int attempts, std::chrono::milliseconds delay) {
+int32_t MasterController::detectSlavesWithRetries_(int attempts, std::chrono::milliseconds delay) {
     int32_t detected = 0;
     for (int i = 0; i < attempts; ++i) {
         detected = bus_->detectSlaves();
-        model_->setDetectedSubs(detected);
+        model_->setDetectedSlaves(detected);
         if (detected > 0) {
             bus_->processAwaitingFrames();
             return detected;
@@ -107,7 +107,7 @@ int32_t MainController::detectSlavesWithRetries_(int attempts, std::chrono::mill
     return detected;
 }
 
-void MainController::refreshSlaveAlStatusUnlocked_() {
+void MasterController::refreshSlaveAlStatusUnlocked_() {
     if (!bus_ || !link_) {
         return;
     }
@@ -125,8 +125,8 @@ void MainController::refreshSlaveAlStatusUnlocked_() {
     }
 }
 
-std::vector<SubsRow> MainController::snapshotSlavesUnlocked_() {
-    std::vector<SubsRow> rows;
+std::vector<SlavesRow> MasterController::snapshotSlavesUnlocked_() {
+    std::vector<SlavesRow> rows;
     if (!bus_) {
         return rows;
     }
@@ -138,7 +138,7 @@ std::vector<SubsRow> MainController::snapshotSlavesUnlocked_() {
     return rows;
 }
 
-bool MainController::allSlavesInStateUnlocked_(kickcat::State state) const {
+bool MasterController::allSlavesInStateUnlocked_(kickcat::State state) const {
     if (!bus_) {
         return false;
     }
@@ -151,7 +151,7 @@ bool MainController::allSlavesInStateUnlocked_(kickcat::State state) const {
     });
 }
 
-bool MainController::requestAndWaitStateUnlocked_(kickcat::State            target,
+bool MasterController::requestAndWaitStateUnlocked_(kickcat::State            target,
                                                   std::chrono::milliseconds timeout) {
     if (!bus_) {
         return false;
@@ -178,32 +178,32 @@ bool MainController::requestAndWaitStateUnlocked_(kickcat::State            targ
     return allSlavesInStateUnlocked_(target);
 }
 
-void MainController::scan() {
+void MasterController::scan() {
     try {
         std::lock_guard<std::mutex> guard(bus_mutex_);
         ensureBus_();
         int32_t n = detectSlavesWithRetries_(10, 100ms);
         if (n <= 0) {
-            model_->setSubs({});
+            model_->setSlaves({});
             model_->setStatus("scan err: no slave detected");
             return;
         }
         refreshSlaveAlStatusUnlocked_();
-        model_->setSubs(snapshotSlavesUnlocked_());
+        model_->setSlaves(snapshotSlavesUnlocked_());
         model_->setStatus("scan ok");
     } catch (std::exception const& e) {
         model_->setStatus(std::string("scan err: ") + e.what());
     }
 }
 
-void MainController::initPreop() {
+void MasterController::initPreop() {
     try {
         std::lock_guard<std::mutex> guard(bus_mutex_);
         ensureBus_();
         if (bus_->slaves().empty()) {
             auto detected = detectSlavesWithRetries_(10, 100ms);
             if (detected <= 0) {
-                model_->setSubs({});
+                model_->setSlaves({});
                 model_->setPreop(false);
                 model_->setStatus("preop err: no slave detected");
                 return;
@@ -234,7 +234,7 @@ void MainController::initPreop() {
         }
 
         auto rows = snapshotSlavesUnlocked_();
-        model_->setSubs(std::move(rows));
+        model_->setSlaves(std::move(rows));
         model_->setPreop(preopReached);
 
         if (preopReached) {
@@ -251,7 +251,7 @@ void MainController::initPreop() {
     }
 }
 
-void MainController::requestOperational() {
+void MasterController::requestOperational() {
     try {
         std::lock_guard<std::mutex> guard(bus_mutex_);
         ensureBus_();
@@ -268,7 +268,7 @@ void MainController::requestOperational() {
         bus_->waitForState(kickcat::State::OPERATIONAL, 2000ms,
                            [&] { bus_->processDataReadWrite([](auto const&) {}); });
         refreshSlaveAlStatusUnlocked_();
-        model_->setSubs(snapshotSlavesUnlocked_());
+        model_->setSlaves(snapshotSlavesUnlocked_());
         model_->setOperational(true);
         model_->setStatus("op ok");
     } catch (std::exception const& e) {
@@ -276,13 +276,13 @@ void MainController::requestOperational() {
     }
 }
 
-void MainController::run_() {
+void MasterController::run_() {
     model_->setStatus("ready - press 's' to scan");
 
     auto period = std::chrono::microseconds(cycle_us_);
     while (!stop_.load()) {
         try {
-            std::vector<SubsRow> rows;
+            std::vector<SlavesRow> rows;
             {
                 std::lock_guard<std::mutex> guard(bus_mutex_);
                 ensureBus_();
@@ -291,7 +291,7 @@ void MainController::run_() {
                 bus_->processAwaitingFrames();
                 rows = snapshotSlavesUnlocked_();
             }
-            model_->setSubs(std::move(rows));
+            model_->setSlaves(std::move(rows));
         } catch (...) {
             // ignore transient errors
         }
@@ -299,7 +299,7 @@ void MainController::run_() {
     }
 }
 
-bool MainController::sdoUpload(int slave_index, uint16_t index, uint8_t subindex, uint32_t& value) {
+bool MasterController::sdoUpload(int slave_index, uint16_t index, uint8_t subindex, uint32_t& value) {
     try {
         std::lock_guard<std::mutex> guard(bus_mutex_);
         ensureBus_();
@@ -322,7 +322,7 @@ bool MainController::sdoUpload(int slave_index, uint16_t index, uint8_t subindex
     }
 }
 
-bool MainController::sdoDownload(int slave_index, uint16_t index, uint8_t subindex,
+bool MasterController::sdoDownload(int slave_index, uint16_t index, uint8_t subindex,
                                  uint32_t value) {
     try {
         std::lock_guard<std::mutex> guard(bus_mutex_);
@@ -342,4 +342,4 @@ bool MainController::sdoDownload(int slave_index, uint16_t index, uint8_t subind
     }
 }
 
-} // namespace ethercat_sim::app::main
+} // namespace ethercat_sim::app::master

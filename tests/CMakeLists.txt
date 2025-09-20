@@ -138,15 +138,15 @@ gtest_discover_tests(test_el1258 PROPERTIES LABELS "core;slave")
 
 add_executable(test_master_controller
     master/test_master_controller.cpp
-    ${CMAKE_SOURCE_DIR}/src/a-main/mvc/controller/main_controller.cpp
-    ${CMAKE_SOURCE_DIR}/src/a-main/bus/main_socket.cpp
-    ${CMAKE_SOURCE_DIR}/src/a-subs/bus/subs_endpoint.cpp
+    ${CMAKE_SOURCE_DIR}/apps/master/logic/master_controller.cpp
+    ${CMAKE_SOURCE_DIR}/apps/master/bus/master_socket.cpp
+    ${CMAKE_SOURCE_DIR}/apps/slaves/bus/slaves_endpoint.cpp
 )
 target_include_directories(test_master_controller
     PRIVATE
         ${CMAKE_SOURCE_DIR}/include
-        ${CMAKE_SOURCE_DIR}/src/a-main
-        ${CMAKE_SOURCE_DIR}/src/a-subs
+        ${CMAKE_SOURCE_DIR}/apps/master
+        ${CMAKE_SOURCE_DIR}/apps/slaves
 )
 target_link_libraries(test_master_controller
     PRIVATE

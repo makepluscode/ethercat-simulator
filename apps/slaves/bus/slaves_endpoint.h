@@ -11,18 +11,18 @@
 
 namespace ethercat_sim::bus {
 
-class SubsEndpoint {
+class SlavesEndpoint {
 public:
-    explicit SubsEndpoint(std::string endpoint)
+    explicit SlavesEndpoint(std::string endpoint)
         : endpoint_(std::move(endpoint)) {}
 
-    void setSubsCount(std::size_t n) { subs_count_ = n; }
+    void setSlavesCount(std::size_t n) { slaves_count_ = n; }
     void setStopFlag(std::atomic_bool* stop_flag) { stop_ = stop_flag; }
     bool run(); // blocking server loop (single connection for now)
 
 private:
     std::string endpoint_;
-    std::size_t subs_count_ {1};
+    std::size_t slaves_count_ {1};
     std::atomic_bool* stop_ {nullptr};
 
     std::shared_ptr<simulation::NetworkSimulator> sim_ {std::make_shared<simulation::NetworkSimulator>()};

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(EtherCATSimulator VERSION 0.1.0 LANGUAGES CXX)
+project(ecat-simul VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -12,8 +12,8 @@ option(ENABLE_LLVM_COVERAGE "Use llvm-cov/llvm-profdata coverage (clang)" OFF)
 option(BUILD_EXAMPLES "Build examples" OFF)
 option(BUILD_GUI "Build GUI applications (Qt6 QML)" OFF)
 option(FORCE_NO_FTXUI "Ignore FTXUI even if found" OFF)
-option(BUILD_AMAIN "Build a-main application" ON)
-option(BUILD_ASUBS "Build a-subs application" ON)
+option(BUILD_MASTER "Build master application" ON)
+option(BUILD_SLAVES "Build slaves application" ON)
 
 include(CTest)
 enable_testing()
@@ -105,10 +105,10 @@ if(HAVE_FTXUI)
     add_subdirectory(tui)
 endif()
 
-# New applications: a-main and a-subs
-if(BUILD_AMAIN)
-    add_subdirectory(src/a-main)
+# New applications: master and slaves
+if(BUILD_MASTER)
+    add_subdirectory(apps/master)
 endif()
-if(BUILD_ASUBS)
-    add_subdirectory(src/a-subs)
+if(BUILD_SLAVES)
+    add_subdirectory(apps/slaves)
 endif()

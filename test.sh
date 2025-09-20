@@ -16,8 +16,11 @@ if [[ ! -d "${BUILD_DIR}" ]]; then
   cmake -S . -B "${BUILD_DIR}" \
     -DCMAKE_TOOLCHAIN_FILE=${BUILD_DIR}/conan_toolchain.cmake \
     -DCMAKE_BUILD_TYPE=Debug \
-    -DBUILD_EXAMPLES=ON -DBUILD_TESTING=ON -DBUILD_AMASTER=OFF -DBUILD_ASLAVES=OFF
+    -DBUILD_EXAMPLES=ON -DBUILD_TESTING=ON -DBUILD_MASTER=ON -DBUILD_SLAVES=ON \
+    -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
   cmake --build "${BUILD_DIR}" -j
+
+  echo "[done] Artifacts in ${BUILD_DIR} (apps in ${BUILD_DIR}/apps)"
 fi
 
 GROUP=""

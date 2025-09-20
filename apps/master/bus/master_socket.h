@@ -8,12 +8,12 @@
 
 namespace ethercat_sim::bus {
 
-// MainSocket implements Kickcat's AbstractSocket and forwards EtherCAT frames
+// MasterSocket implements Kickcat's AbstractSocket and forwards EtherCAT frames
 // over a stream transport (UDS or TCP). The EtherCAT frame bytes are sent as-is
 // with a 16-bit big-endian length prefix to preserve message boundaries on streams.
-class MainSocket : public ::kickcat::AbstractSocket {
+class MasterSocket : public ::kickcat::AbstractSocket {
 public:
-    explicit MainSocket(std::string endpoint)
+    explicit MasterSocket(std::string endpoint)
         : endpoint_(std::move(endpoint)) {}
 
     void open(std::string const& interface) override;
