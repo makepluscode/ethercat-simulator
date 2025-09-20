@@ -11,7 +11,8 @@
 using ethercat_sim::communication::TextMsg;
 using ethercat_sim::communication::TextMsgPubSubType;
 
-int main() {
+int main()
+{
     eprosima::fastdds::dds::TypeSupport type(new TextMsgPubSubType());
     // SHM-only transport (no UDP) for sandbox friendliness
     auto* factory = eprosima::fastdds::dds::DomainParticipantFactory::get_instance();
@@ -21,7 +22,8 @@ int main() {
     qos.transport().user_transports.push_back(
         std::make_shared<eprosima::fastdds::rtps::SharedMemTransportDescriptor>());
     auto* participant = factory->create_participant(0, qos);
-    if (!participant) {
+    if (!participant)
+    {
         std::cerr << "participant create failed" << std::endl;
         return 1;
     }

@@ -2,28 +2,32 @@
 
 #include <iostream>
 
-namespace ethercat_sim::app::slaves {
+namespace ethercat_sim::app::slaves
+{
 
-void SlavesController::start() {
+void SlavesController::start()
+{
     if (th_.joinable())
         return;
     stop_.store(false);
     th_ = std::thread(&SlavesController::run_, this);
 }
 
-void SlavesController::stop() {
+void SlavesController::stop()
+{
     stop_.store(true);
     if (th_.joinable())
         th_.join();
 }
 
-void SlavesController::run_() {
+void SlavesController::run_()
+{
     model_->setEndpoint(endpoint_);
     model_->setCount(count_);
     model_->setStatus("starting");
 
     ethercat_sim::bus::SlavesEndpoint ep(endpoint_);
-    std::atomic_bool                  stop_flag{false};
+    std::atomic_bool stop_flag{false};
     ep.setStopFlag(&stop_flag);
     ep.setSlavesCount(static_cast<std::size_t>(count_));
     ep.setConnectionCallback([this](bool connected) { this->model_->setConnected(connected); });
@@ -35,7 +39,8 @@ void SlavesController::run_() {
     std::thread server([&] { ep.run(); });
 
     model_->setStatus("listening");
-    while (!stop_.load()) {
+    while (!stop_.load())
+    {
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
     stop_flag.store(true);

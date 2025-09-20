@@ -26,16 +26,19 @@
 
 using namespace std::chrono_literals;
 
-namespace {
+namespace
+{
 
-std::string unique_topic() {
+std::string unique_topic()
+{
     // Unique topic per test run to avoid clashes across processes
     return std::string("sim_text_test_") + std::to_string(::getpid());
 }
 
 } // namespace
 
-TEST(DdsTextPubSub, PublishReceive_ShmOnly_Succeeds) {
+TEST(DdsTextPubSub, PublishReceive_ShmOnly_Succeeds)
+{
     using namespace eprosima::fastdds::dds;
     using ethercat_sim::communication::TextMsg;
     using ethercat_sim::communication::TextMsgPubSubType;
@@ -49,13 +52,14 @@ TEST(DdsTextPubSub, PublishReceive_ShmOnly_Succeeds) {
         std::make_shared<eprosima::fastdds::rtps::SharedMemTransportDescriptor>());
     DomainParticipant* participant =
         DomainParticipantFactory::get_instance()->create_participant(0, qos);
-    if (!participant) {
+    if (!participant)
+    {
         GTEST_SKIP() << "SHM transport unavailable; skipping pub/sub test";
     }
 
     type.register_type(participant);
 
-    auto   topic_name = unique_topic();
+    auto topic_name = unique_topic();
     Topic* topic = participant->create_topic(topic_name, type.get_type_name(), TOPIC_QOS_DEFAULT);
     ASSERT_NE(topic, nullptr);
 
@@ -79,13 +83,15 @@ TEST(DdsTextPubSub, PublishReceive_ShmOnly_Succeeds) {
     EXPECT_EQ(ret, eprosima::fastdds::dds::RETCODE_OK);
 
     // Poll for reception up to ~2s
-    TextMsg    received{};
+    TextMsg received{};
     SampleInfo info{};
-    bool       got   = false;
-    auto       start = std::chrono::steady_clock::now();
-    while (std::chrono::steady_clock::now() - start < 2s) {
+    bool got   = false;
+    auto start = std::chrono::steady_clock::now();
+    while (std::chrono::steady_clock::now() - start < 2s)
+    {
         if (reader->take_next_sample(&received, &info) == eprosima::fastdds::dds::RETCODE_OK &&
-            info.instance_state == ALIVE_INSTANCE_STATE) {
+            info.instance_state == ALIVE_INSTANCE_STATE)
+        {
             got = true;
             break;
         }
@@ -93,7 +99,8 @@ TEST(DdsTextPubSub, PublishReceive_ShmOnly_Succeeds) {
     }
 
     EXPECT_TRUE(got) << "Did not receive DDS sample within timeout";
-    if (got) {
+    if (got)
+    {
         EXPECT_EQ(received.text, msg.text);
     }
 

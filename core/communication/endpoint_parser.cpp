@@ -3,13 +3,16 @@
 #include <cstdint>
 #include <stdexcept>
 
-namespace ethercat_sim::communication {
+namespace ethercat_sim::communication
+{
 
-bool EndpointParser::parseTcpEndpoint(const std::string& ep, std::string& host, uint16_t& port) {
+bool EndpointParser::parseTcpEndpoint(const std::string& ep, std::string& host, uint16_t& port)
+{
     std::string_view v{ep};
 
     // Check if it starts with tcp://
-    if (v.rfind(TCP_PREFIX, 0) != 0) {
+    if (v.rfind(TCP_PREFIX, 0) != 0)
+    {
         return false;
     }
 
@@ -18,7 +21,8 @@ bool EndpointParser::parseTcpEndpoint(const std::string& ep, std::string& host, 
 
     // Find colon separator
     auto colon = v.find(':');
-    if (colon == std::string_view::npos) {
+    if (colon == std::string_view::npos)
+    {
         return false;
     }
 
@@ -26,24 +30,30 @@ bool EndpointParser::parseTcpEndpoint(const std::string& ep, std::string& host, 
     host.assign(v.substr(0, colon));
     auto pstr = v.substr(colon + 1);
 
-    try {
+    try
+    {
         int p = std::stoi(std::string(pstr));
-        if (p < 1 || p > 65535) {
+        if (p < 1 || p > 65535)
+        {
             return false;
         }
         port = static_cast<uint16_t>(p);
-    } catch (const std::exception&) {
+    }
+    catch (const std::exception&)
+    {
         return false;
     }
 
     return true;
 }
 
-bool EndpointParser::parseUdsEndpoint(const std::string& ep, std::string& path) {
+bool EndpointParser::parseUdsEndpoint(const std::string& ep, std::string& path)
+{
     std::string_view v{ep};
 
     // Check if it starts with uds://
-    if (v.rfind(UDS_PREFIX, 0) != 0) {
+    if (v.rfind(UDS_PREFIX, 0) != 0)
+    {
         return false;
     }
 
@@ -55,19 +65,26 @@ bool EndpointParser::parseUdsEndpoint(const std::string& ep, std::string& path) 
     return true;
 }
 
-bool EndpointParser::isValidEndpoint(const std::string& ep) {
+bool EndpointParser::isValidEndpoint(const std::string& ep)
+{
     std::string host, path;
-    uint16_t    port;
+    uint16_t port;
 
     return parseTcpEndpoint(ep, host, port) || parseUdsEndpoint(ep, path);
 }
 
-std::string EndpointParser::getEndpointType(const std::string& ep) {
-    if (ep.rfind(TCP_PREFIX, 0) == 0) {
+std::string EndpointParser::getEndpointType(const std::string& ep)
+{
+    if (ep.rfind(TCP_PREFIX, 0) == 0)
+    {
         return "tcp";
-    } else if (ep.rfind(UDS_PREFIX, 0) == 0) {
+    }
+    else if (ep.rfind(UDS_PREFIX, 0) == 0)
+    {
         return "uds";
-    } else {
+    }
+    else
+    {
         return "unknown";
     }
 }

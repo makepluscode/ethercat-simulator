@@ -11,26 +11,31 @@
 #include "ethercat_sim/communication/ethercat_frame.h"
 #include "ethercat_sim/simulation/virtual_slave.h"
 
-namespace ethercat_sim::simulation {
+namespace ethercat_sim::simulation
+{
 
-class NetworkSimulator {
+class NetworkSimulator
+{
   public:
     NetworkSimulator() = default;
     void initialize(const std::string& config = "") noexcept;
-    int  runOnce() noexcept; // returns 0 on success
+    int runOnce() noexcept; // returns 0 on success
 
     // KickCAT-like concept: simple frame I/O to a simulated link
     void setLinkUp(bool up) noexcept;
     void setLatencyMs(std::uint32_t ms) noexcept; // delivery delay simulation (not enforced yet)
-    bool isLinkUp() const noexcept {
+    bool isLinkUp() const noexcept
+    {
         return linkUp_;
     }
 
-    void        setVirtualSlaveCount(std::size_t n) noexcept;
-    std::size_t virtualSlaveCount() const noexcept {
+    void setVirtualSlaveCount(std::size_t n) noexcept;
+    std::size_t virtualSlaveCount() const noexcept
+    {
         return virtualSlaveCount_;
     }
-    std::size_t slaveCount() const noexcept {
+    std::size_t slaveCount() const noexcept
+    {
         return virtualSlaveCount_;
     }
     std::size_t onlineSlaveCount() const noexcept;
@@ -69,23 +74,25 @@ class NetworkSimulator {
     void clearInputMappings() noexcept;
 
   private:
-    struct FrameItem {
-        communication::EtherCATFrame          frame;
+    struct FrameItem
+    {
+        communication::EtherCATFrame frame;
         std::chrono::steady_clock::time_point ready_at{};
     };
 
-    bool                                       linkUp_{true};
-    std::uint32_t                              latencyMs_{0};
-    std::size_t                                virtualSlaveCount_{0};
-    mutable std::mutex                         mutex_;
-    std::deque<FrameItem>                      queue_;
+    bool linkUp_{true};
+    std::uint32_t latencyMs_{0};
+    std::size_t virtualSlaveCount_{0};
+    mutable std::mutex mutex_;
+    std::deque<FrameItem> queue_;
     std::vector<std::shared_ptr<VirtualSlave>> slaves_;
-    std::vector<std::uint8_t>                  logical_ = std::vector<std::uint8_t>(16384, 0);
+    std::vector<std::uint8_t> logical_ = std::vector<std::uint8_t>(16384, 0);
 
-    struct InputMap {
+    struct InputMap
+    {
         std::weak_ptr<VirtualSlave> slave;
-        std::uint32_t               logical_address{0};
-        std::size_t                 width_bytes{1};
+        std::uint32_t logical_address{0};
+        std::size_t width_bytes{1};
     };
     std::vector<InputMap> input_maps_;
 

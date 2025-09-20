@@ -2,7 +2,8 @@
 
 #include <memory>
 
-namespace ethercat_sim::app::slaves {
+namespace ethercat_sim::app::slaves
+{
 
 class SlavesController;
 class SlavesModel;

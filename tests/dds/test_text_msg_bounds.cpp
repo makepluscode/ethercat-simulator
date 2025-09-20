@@ -24,13 +24,16 @@
 
 using namespace std::chrono_literals;
 
-namespace {
-std::string unique_topic() {
+namespace
+{
+std::string unique_topic()
+{
     return std::string("sim_text_bounds_") + std::to_string(::getpid());
 }
 } // namespace
 
-TEST(DdsTextBounds, LongMessage_Truncated_NotCrashing) {
+TEST(DdsTextBounds, LongMessage_Truncated_NotCrashing)
+{
     using namespace eprosima::fastdds::dds;
     using ethercat_sim::communication::TextMsg;
     using ethercat_sim::communication::TextMsgPubSubType;
@@ -43,13 +46,14 @@ TEST(DdsTextBounds, LongMessage_Truncated_NotCrashing) {
         std::make_shared<eprosima::fastdds::rtps::SharedMemTransportDescriptor>());
     DomainParticipant* participant =
         DomainParticipantFactory::get_instance()->create_participant(0, qos);
-    if (!participant) {
+    if (!participant)
+    {
         GTEST_SKIP() << "SHM transport unavailable; skipping bounds test";
     }
 
     type.register_type(participant);
 
-    auto   topic_name = unique_topic();
+    auto topic_name = unique_topic();
     Topic* topic = participant->create_topic(topic_name, type.get_type_name(), TOPIC_QOS_DEFAULT);
     ASSERT_NE(topic, nullptr);
     Publisher* pub = participant->create_publisher(PUBLISHER_QOS_DEFAULT, nullptr);
@@ -65,20 +69,22 @@ TEST(DdsTextBounds, LongMessage_Truncated_NotCrashing) {
 
     // Prepare a message longer than TEXTMSG_MAX_LEN
     std::string long_text(ethercat_sim::communication::TEXTMSG_MAX_LEN + 200, 'A');
-    TextMsg     msg;
+    TextMsg msg;
     msg.text = long_text;
 
     auto rc = writer->write(&msg);
     EXPECT_EQ(rc, eprosima::fastdds::dds::RETCODE_OK);
 
     // Receive and verify it is truncated to TEXTMSG_MAX_LEN
-    TextMsg    received{};
+    TextMsg received{};
     SampleInfo info{};
-    bool       got   = false;
-    auto       start = std::chrono::steady_clock::now();
-    while (std::chrono::steady_clock::now() - start < 2s) {
+    bool got   = false;
+    auto start = std::chrono::steady_clock::now();
+    while (std::chrono::steady_clock::now() - start < 2s)
+    {
         if (reader->take_next_sample(&received, &info) == eprosima::fastdds::dds::RETCODE_OK &&
-            info.instance_state == ALIVE_INSTANCE_STATE) {
+            info.instance_state == ALIVE_INSTANCE_STATE)
+        {
             got = true;
             break;
         }
@@ -88,7 +94,8 @@ TEST(DdsTextBounds, LongMessage_Truncated_NotCrashing) {
     ASSERT_TRUE(got) << "No DDS sample received";
     EXPECT_EQ(received.text.size(), ethercat_sim::communication::TEXTMSG_MAX_LEN);
     // All chars 'A'
-    if (!received.text.empty()) {
+    if (!received.text.empty())
+    {
         EXPECT_EQ(received.text.find_first_not_of('A'), std::string::npos);
     }
 

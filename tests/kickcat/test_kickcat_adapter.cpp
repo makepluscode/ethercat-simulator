@@ -11,7 +11,8 @@
 using ethercat_sim::simulation::NetworkSimulator;
 using ethercat_sim::simulation::VirtualSlave;
 
-TEST(KickcatAdapter, ReadWrite_StationAddress) {
+TEST(KickcatAdapter, ReadWrite_StationAddress)
+{
     auto sim = std::make_shared<NetworkSimulator>();
     sim->initialize();
     sim->clearSlaves();

@@ -7,7 +7,8 @@
 #include "Slave.h"
 #include "protocol.h"
 
-namespace kickcat {
+namespace kickcat
+{
 // Slaves utils
 void printInfo(Slave const& slave);
 void printPDOs(Slave const& slave);

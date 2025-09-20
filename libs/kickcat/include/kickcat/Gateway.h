@@ -5,9 +5,11 @@
 #include "Bus.h"
 #include "Mailbox.h"
 
-namespace kickcat {
+namespace kickcat
+{
 /// \brief Handle external mailbox requests as defined in ETG.8200
-class Gateway {
+class Gateway
+{
   public:
     /// \param socket       Socket to communicate with external networks
     /// \param addMessage   Callback that enable the gateway instance to transfer the request to the
@@ -15,7 +17,9 @@ class Gateway {
     Gateway(std::shared_ptr<AbstractDiagSocket> socket,
             std::function<std::shared_ptr<GatewayMessage>(uint8_t const*, int32_t, uint16_t)>
                 addMessage)
-        : socket_{socket}, addMessage_{addMessage}, pendingRequests_{} {}
+        : socket_{socket}, addMessage_{addMessage}, pendingRequests_{}
+    {
+    }
     virtual ~Gateway() = default;
 
     /// \brief   Fetch a request on the external network and process it if any
@@ -32,7 +36,7 @@ class Gateway {
     void processPendingRequests();
 
   private:
-    std::shared_ptr<AbstractDiagSocket>                                               socket_;
+    std::shared_ptr<AbstractDiagSocket> socket_;
     std::function<std::shared_ptr<GatewayMessage>(uint8_t const*, int32_t, uint16_t)> addMessage_;
     std::vector<std::shared_ptr<GatewayMessage>> pendingRequests_;
 };

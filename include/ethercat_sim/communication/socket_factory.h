@@ -4,9 +4,11 @@
 #include <memory>
 #include <string>
 
-namespace ethercat_sim::communication {
+namespace ethercat_sim::communication
+{
 
-class SocketFactory {
+class SocketFactory
+{
   public:
     // Socket creation callback type
     using SocketCreator = std::function<int(const std::string&)>;

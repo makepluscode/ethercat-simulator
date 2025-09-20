@@ -11,15 +11,22 @@
 #include "Error.h"
 #include "Time.h"
 
-namespace kickcat {
+namespace kickcat
+{
 // Host to Network byte order helper (Reminder: EtherCAT is LE, network is BE)
-template <typename T> constexpr T hton(T value) {
-    if constexpr (sizeof(T) == 2) {
+template <typename T> constexpr T hton(T value)
+{
+    if constexpr (sizeof(T) == 2)
+    {
         return T((value << 8) | ((value >> 8) & 0xff));
-    } else if constexpr (sizeof(T) == 4) {
+    }
+    else if constexpr (sizeof(T) == 4)
+    {
         return T((value << 24) | ((value << 8) & 0x00ff0000) | ((value >> 8) & 0x0000ff00) |
                  ((value >> 24) & 0xff));
-    } else {
+    }
+    else
+    {
         THROW_ERROR("Size unsupported");
     }
 }
@@ -28,9 +35,10 @@ template <typename T> constexpr T hton(T value) {
 constexpr int32_t MAC_SIZE = 6;
 using MAC                  = uint8_t[MAC_SIZE];
 
-struct EthernetHeader {
-    MAC      dst;
-    MAC      src;
+struct EthernetHeader
+{
+    MAC dst;
+    MAC src;
     uint16_t type;
 } __attribute__((__packed__));
 
@@ -46,25 +54,28 @@ using EthernetFrame =
 
 // EtherCAT description
 constexpr uint16_t ETH_ETHERCAT_TYPE         = hton<uint16_t>(0x88A4);
-constexpr int32_t  ETHERCAT_WKC_SIZE         = 2;
-constexpr int32_t  MAX_ETHERCAT_DATAGRAMS    = 15;   // max EtherCAT datagrams per Ethernet frame
+constexpr int32_t ETHERCAT_WKC_SIZE          = 2;
+constexpr int32_t MAX_ETHERCAT_DATAGRAMS     = 15;   // max EtherCAT datagrams per Ethernet frame
 constexpr uint16_t MAX_ETHERCAT_PAYLOAD_SIZE = 1486; // max EtherCAT payload size possible
 
 // EtherCAT subprotocol
-enum EthercatType : int16_t {
+enum EthercatType : int16_t
+{
     ETHERCAT          = 0x1, // EtherCAT Data Link Protocol Data Unit (the real time protocol)
     NETWORK_VARIABLES = 0x4,
     MAILBOX           = 0x5 // EtherCAT gateway
 };
 
-struct EthercatHeader {
+struct EthercatHeader
+{
     uint16_t len : 11;
-    int16_t  reserved : 1;
-    int16_t  type : 4;
+    int16_t reserved : 1;
+    int16_t type : 4;
 } __attribute__((__packed__));
 
 // Ethercat command types
-enum class Command : uint8_t {
+enum class Command : uint8_t
+{
     NOP  = 0,  // No Operation
     APRD = 1,  // Auto increment Physical Read
     APWR = 2,  // Auto increment Physical Write
@@ -83,17 +94,19 @@ enum class Command : uint8_t {
 };
 char const* toString(Command cmd);
 
-struct DatagramHeader {
+struct DatagramHeader
+{
     enum Command command;
-    uint8_t      index;
-    uint32_t     address;
-    uint16_t     len : 11, reserved : 3, circulating : 1,
+    uint8_t index;
+    uint32_t address;
+    uint16_t len : 11, reserved : 3, circulating : 1,
         multiple : 1; // multiple EtherCAT datagram (0 if last, 1 otherwise)
     uint16_t irq;
 } __attribute__((__packed__));
 std::string toString(DatagramHeader const& header);
 
-enum EcatEvent : uint16_t {
+enum EcatEvent : uint16_t
+{
     DC_LATCH = (1 << 0), // Clear: read Latch status
     // Reserved bit
     DL_STATUS = (1 << 2), // Clear: read DL Status
@@ -110,7 +123,8 @@ enum EcatEvent : uint16_t {
 };
 
 // EtherCAT state machine states
-enum State : uint8_t {
+enum State : uint8_t
+{
     INVALID     = 0x00,
     INIT        = 0x01,
     PRE_OP      = 0x02,
@@ -126,7 +140,8 @@ char const* ALStatus_to_string(int32_t code);
 // TODO need unit test on bitfield to check position !
 
 // EtherCAT standard registers
-namespace reg {
+namespace reg
+{
 constexpr uint16_t TYPE          = 0x0000;
 constexpr uint16_t REVISION      = 0x0001;
 constexpr uint16_t BUILD         = 0x0002; // 2 bytes
@@ -192,7 +207,8 @@ constexpr uint16_t DC_SYNC_ACTIVATION = 0x981;
 constexpr uint16_t LATCH_STATUS = 0x9AE;
 } // namespace reg
 
-struct DLStatus {
+struct DLStatus
+{
     uint16_t PDI_op : 1, PDI_watchdog : 1, EL_detection : 1, reserved : 1, PL_port0 : 1,
         PL_port1 : 1, PL_port2 : 1, PL_port3 : 1, LOOP_port0 : 1, COM_port0 : 1, LOOP_port1 : 1,
         COM_port1 : 1, LOOP_port2 : 1, COM_port2 : 1, LOOP_port3 : 1, COM_port3 : 1;
@@ -200,34 +216,38 @@ struct DLStatus {
 
 std::string toString(DLStatus const& counters);
 
-struct ErrorCounters {
-    struct RX {
+struct ErrorCounters
+{
+    struct RX
+    {
         uint8_t invalid_frame;
         uint8_t physical_layer;
     };
-    RX       rx[4];
-    uint8_t  forwarded[4];
-    uint8_t  malformed_frame;
-    uint8_t  pdi;
+    RX rx[4];
+    uint8_t forwarded[4];
+    uint8_t malformed_frame;
+    uint8_t pdi;
     uint16_t spi_pdi;
     uint16_t uc_pdi;
     uint16_t avalon_pdi;
     uint16_t axi_pdi;
-    uint8_t  lost_link[4];
+    uint8_t lost_link[4];
 } __attribute__((__packed__));
 
 std::string toString(ErrorCounters const& counters);
 
-struct SyncManager {
+struct SyncManager
+{
     uint16_t start_address;
     uint16_t length;
-    uint8_t  control;
-    uint8_t  status;
-    uint8_t  activate;
-    uint8_t  pdi_control;
+    uint8_t control;
+    uint8_t status;
+    uint8_t activate;
+    uint8_t pdi_control;
 } __attribute__((__packed__));
 
-enum SyncManagerType {
+enum SyncManagerType
+{
     Unused     = 0,
     MailboxOut = 1,
     MailboxInt = 2,
@@ -238,16 +258,17 @@ constexpr uint8_t MAILBOX_STATUS = (1 << 3);
 
 std::string toString(SyncManagerType const& type);
 
-struct FMMU {
+struct FMMU
+{
     uint32_t logical_address;
     uint16_t length;
-    uint8_t  logical_start_bit;
-    uint8_t  logical_stop_bit;
+    uint8_t logical_start_bit;
+    uint8_t logical_stop_bit;
     uint16_t physical_address;
-    uint8_t  physical_start_bit;
-    uint8_t  type;
-    uint8_t  activate;
-    uint8_t  reserved[3];
+    uint8_t physical_start_bit;
+    uint8_t type;
+    uint8_t activate;
+    uint8_t reserved[3];
 } __attribute__((__packed__));
 
 namespace eeprom // addresses are in words!
@@ -289,14 +310,16 @@ enum MailboxProtocol // get from EEPROM
     SoE  = 0x10
 };
 
-enum Command : uint16_t {
+enum Command : uint16_t
+{
     NOP    = 0x0000, // clear error bits
     READ   = 0x0100,
     WRITE  = 0x0201,
     RELOAD = 0x0300
 };
 
-enum Category : uint16_t {
+enum Category : uint16_t
+{
     Strings   = 10,
     DataTypes = 20,
     General   = 30,
@@ -308,7 +331,8 @@ enum Category : uint16_t {
     End       = 0xFFFF
 };
 
-struct GeneralEntry {
+struct GeneralEntry
+{
     uint8_t group_info_id;
     uint8_t image_name_id;
     uint8_t device_order_id;
@@ -317,42 +341,45 @@ struct GeneralEntry {
     uint8_t SDO_set : 1, // CoE details
         SDO_info : 1, PDO_assign : 1, PDO_configuration : 1, PDO_upload : 1,
         SDO_complete_access : 1, unused : 2;
-    uint8_t  FoE_details;
-    uint8_t  EoE_details;
-    uint8_t  SoE_channels;
-    uint8_t  DS402_channels;
-    uint8_t  SysmanClass;
-    uint8_t  flags;
-    int16_t  current_on_ebus; // mA, negative means feeding current
-    uint8_t  group_info_id_dup;
-    uint8_t  reserved_B;
+    uint8_t FoE_details;
+    uint8_t EoE_details;
+    uint8_t SoE_channels;
+    uint8_t DS402_channels;
+    uint8_t SysmanClass;
+    uint8_t flags;
+    int16_t current_on_ebus; // mA, negative means feeding current
+    uint8_t group_info_id_dup;
+    uint8_t reserved_B;
     uint16_t port_0 : 4, port_1 : 4, port_2 : 4, port_3 : 4;
     uint16_t physical_memory_address;
-    uint8_t  reserved_C[12];
+    uint8_t reserved_C[12];
 } __attribute__((__packed__));
 
-struct SyncManagerEntry {
+struct SyncManagerEntry
+{
     uint16_t start_adress;
     uint16_t length;
-    uint8_t  control_register;
-    uint8_t  status_register;
-    uint8_t  enable;
-    uint8_t  type;
+    uint8_t control_register;
+    uint8_t status_register;
+    uint8_t enable;
+    uint8_t type;
 } __attribute__((__packed__));
 
-struct PDOEntry {
+struct PDOEntry
+{
     uint16_t index;
-    uint8_t  subindex;
-    uint8_t  name;
-    uint8_t  data_type;
-    uint8_t  bitlen;
+    uint8_t subindex;
+    uint8_t name;
+    uint8_t data_type;
+    uint8_t bitlen;
     uint16_t flags;
 } __attribute__((__packed__));
 } // namespace eeprom
 
 std::string toString(eeprom::GeneralEntry const& general_entry);
 
-namespace mailbox {
+namespace mailbox
+{
 enum Type // to put in Mailbox header type entry
 {
     ERROR = 0x00,
@@ -364,12 +391,13 @@ enum Type // to put in Mailbox header type entry
     VoE   = 0x0F  // Vendor specific o er EtherCAT
 };
 
-struct Header {
+struct Header
+{
     uint16_t len;
     uint16_t address;
-    uint8_t  channel : 6, priority : 2;
-    uint8_t  type : 4, // type of the mailbox, i.e. CoE
-        count : 3,     // handle of the message
+    uint8_t channel : 6, priority : 2;
+    uint8_t type : 4, // type of the mailbox, i.e. CoE
+        count : 3,    // handle of the message
         reserved : 1;
 } __attribute__((__packed__));
 
@@ -383,13 +411,15 @@ constexpr uint16_t GATEWAY_MESSAGE_MASK = (1 << 15);
 constexpr uint16_t GATEWAY_MAX_REQUEST = 1024;
 } // namespace mailbox
 
-namespace CoE {
+namespace CoE
+{
 constexpr uint16_t SM_COM_TYPE =
     0x1C00; // each sub-entry described SM[x] com type (mailbox in/out, PDO in/out, not used)
 constexpr uint16_t SM_CHANNEL =
     0x1C10; // each entry is associated with the mapped PDOs (if in used)
 
-struct Header {
+struct Header
+{
     uint16_t number : 9, reserved : 3,
         service : 4; // i.e. request, response
 } __attribute__((__packed__));
@@ -401,7 +431,7 @@ struct ServiceData // ETG1000.6 chapter 5.6.2 SDO
         block_size : 2, complete_access : 1,
         command : 3; // i.e. upload
     uint16_t index;
-    uint8_t  subindex;
+    uint8_t subindex;
 } __attribute__((__packed__));
 
 struct ServiceDataInfo // ETG1000.6 chapter 5.6.3 SDO Information
@@ -413,11 +443,12 @@ struct ServiceDataInfo // ETG1000.6 chapter 5.6.3 SDO Information
 struct Emergency // ETG1000.6 chapter 5.6.4 Emergency
 {
     uint16_t error_code;
-    uint8_t  error_register;
-    uint8_t  data[5];
+    uint8_t error_register;
+    uint8_t data[5];
 } __attribute__((__packed__));
 
-enum Service {
+enum Service
+{
     EMERGENCY            = 0x01,
     SDO_REQUEST          = 0x02,
     SDO_RESPONSE         = 0x03,
@@ -428,9 +459,11 @@ enum Service {
     SDO_INFORMATION      = 0x08
 };
 
-namespace SDO {
+namespace SDO
+{
 // Command specifiers depending on SDO request type
-namespace request {
+namespace request
+{
 constexpr uint8_t DOWNLOAD_SEGMENTED = 0x00;
 constexpr uint8_t DOWNLOAD           = 0x01;
 constexpr uint8_t UPLOAD             = 0x02;
@@ -438,14 +471,16 @@ constexpr uint8_t UPLOAD_SEGMENTED   = 0x03;
 constexpr uint8_t ABORT              = 0x04;
 } // namespace request
 
-namespace response {
+namespace response
+{
 constexpr uint8_t UPLOAD_SEGMENTED   = 0x00;
 constexpr uint8_t DOWNLOAD_SEGMENTED = 0x01;
 constexpr uint8_t UPLOAD             = 0x02;
 constexpr uint8_t DOWNLOAD           = 0x03;
 } // namespace response
 
-namespace information {
+namespace information
+{
 constexpr uint8_t GET_OD_LIST_REQ    = 0x01;
 constexpr uint8_t GET_OD_LIST_RESP   = 0x02;
 constexpr uint8_t GET_OD_REQ         = 0x03;
@@ -465,17 +500,20 @@ constexpr MAC PRIMARY_IF_MAC   = {0xCA, 0xDE, 0xCA, 0xDE, 0xDE, 0xFF};
 constexpr MAC SECONDARY_IF_MAC = {0x03, 0x02, 0x02, 0x02, 0xFF, 0xFF};
 
 // helpers
-constexpr uint16_t datagram_size(uint16_t data_size) {
+constexpr uint16_t datagram_size(uint16_t data_size)
+{
     return static_cast<uint16_t>(sizeof(DatagramHeader) + data_size + sizeof(uint16_t));
 }
 
 /// create a position or node address
-constexpr uint32_t createAddress(uint16_t position, uint16_t offset) {
+constexpr uint32_t createAddress(uint16_t position, uint16_t offset)
+{
     return ((offset << 16) | position);
 }
 
 /// extract a position or node address
-constexpr std::tuple<uint16_t, uint16_t> extractAddress(uint32_t address) {
+constexpr std::tuple<uint16_t, uint16_t> extractAddress(uint32_t address)
+{
     uint16_t offset   = address >> 16;
     uint16_t position = address & 0xFFFF;
     return std::make_tuple(position, offset);
@@ -483,7 +521,8 @@ constexpr std::tuple<uint16_t, uint16_t> extractAddress(uint32_t address) {
 
 /// compute the watchdog divider to set from the required watchdog increment step
 /// Note: the value to set is the divider minus 2
-constexpr uint16_t computeWatchdogDivider(nanoseconds precision = 100us) {
+constexpr uint16_t computeWatchdogDivider(nanoseconds precision = 100us)
+{
     // clock speed is 25MHz -> 1/25MHz = 40ns
     nanoseconds clock_period = 40ns;
     return static_cast<uint16_t>((precision / clock_period) - 2);
@@ -493,17 +532,19 @@ constexpr uint16_t computeWatchdogDivider(nanoseconds precision = 100us) {
 uint16_t computeWatchdogTime(nanoseconds watchdog, nanoseconds precision);
 
 // Helper to retrieve the header/payload in a frame.
-template <typename T, typename Previous> T* pointData(Previous* header_address) {
+template <typename T, typename Previous> T* pointData(Previous* header_address)
+{
     return reinterpret_cast<T*>(header_address + 1);
 }
 template <> mailbox::Header* pointData<mailbox::Header, uint8_t>(uint8_t* base_address);
-template <> EthernetHeader*  pointData<EthernetHeader, uint8_t>(uint8_t* base_address);
+template <> EthernetHeader* pointData<EthernetHeader, uint8_t>(uint8_t* base_address);
 
-template <typename T, typename Previous> T const* pointData(Previous const* header_address) {
+template <typename T, typename Previous> T const* pointData(Previous const* header_address)
+{
     return reinterpret_cast<T const*>(header_address + 1);
 }
 template <> mailbox::Header const* pointData<mailbox::Header, uint8_t>(uint8_t const* base_address);
-template <> EthernetHeader const*  pointData<EthernetHeader, uint8_t>(uint8_t const* base_address);
+template <> EthernetHeader const* pointData<EthernetHeader, uint8_t>(uint8_t const* base_address);
 } // namespace kickcat
 
 #endif

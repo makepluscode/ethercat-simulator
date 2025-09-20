@@ -9,7 +9,8 @@
 
 using ethercat_sim::simulation::NetworkSimulator;
 
-TEST(KickcatBus, Init_MinimalFlow) {
+TEST(KickcatBus, Init_MinimalFlow)
+{
     auto sim = std::make_shared<NetworkSimulator>();
     sim->initialize();
     sim->setLinkUp(true);

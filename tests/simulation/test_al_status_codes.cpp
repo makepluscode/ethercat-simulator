@@ -9,22 +9,26 @@
 using ethercat_sim::simulation::NetworkSimulator;
 using ethercat_sim::simulation::VirtualSlave;
 
-namespace {
+namespace
+{
 
-void read16(NetworkSimulator& sim, uint16_t station, uint16_t reg, uint16_t& out) {
+void read16(NetworkSimulator& sim, uint16_t station, uint16_t reg, uint16_t& out)
+{
     std::uint8_t buf[2] = {0, 0};
     ASSERT_TRUE(sim.readFromSlave(station, reg, buf, sizeof(buf)));
     out = static_cast<uint16_t>(buf[0] | (static_cast<uint16_t>(buf[1]) << 8));
 }
 
-void write8(NetworkSimulator& sim, uint16_t station, uint16_t reg, uint8_t val) {
+void write8(NetworkSimulator& sim, uint16_t station, uint16_t reg, uint8_t val)
+{
     std::uint8_t buf[2] = {val, 0x00};
     ASSERT_TRUE(sim.writeToSlave(station, reg, buf, sizeof(buf)));
 }
 
 } // namespace
 
-TEST(VirtualSlaveAL, TransitionGating_StatusCodes) {
+TEST(VirtualSlaveAL, TransitionGating_StatusCodes)
+{
     NetworkSimulator sim;
     sim.initialize();
     sim.clearSlaves();

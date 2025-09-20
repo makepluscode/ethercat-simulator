@@ -6,7 +6,8 @@
 
 #include "Slave.h"
 
-namespace kickcat {
+namespace kickcat
+{
 /// \brief return the topology of discovered network - To be called after bus.getDLStatus()
 /// \return [key, value] pair : [slave adress, parent address] (the only slave that is its own
 /// parent is linked to the master)

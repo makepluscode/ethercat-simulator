@@ -6,14 +6,15 @@
 
 using ethercat_sim::simulation::NetworkSimulator;
 
-TEST(NetworkSimulatorRegistry, WriteRead_ByAddress_AffectsOnlyTarget) {
+TEST(NetworkSimulatorRegistry, WriteRead_ByAddress_AffectsOnlyTarget)
+{
     NetworkSimulator sim;
     sim.initialize();
     sim.clearSlaves();
     sim.setVirtualSlaveCount(3); // addresses 1..3
 
-    constexpr uint16_t REG     = 0x0100;
-    uint8_t            wbuf[4] = {0x11, 0x22, 0x33, 0x44};
+    constexpr uint16_t REG = 0x0100;
+    uint8_t wbuf[4]        = {0x11, 0x22, 0x33, 0x44};
     ASSERT_TRUE(sim.writeToSlave(2, REG, wbuf, sizeof(wbuf)));
 
     uint8_t r1[4] = {0}, r2[4] = {0}, r3[4] = {0};
@@ -26,14 +27,15 @@ TEST(NetworkSimulatorRegistry, WriteRead_ByAddress_AffectsOnlyTarget) {
     EXPECT_NE(0, std::memcmp(r3, wbuf, sizeof(wbuf)));
 }
 
-TEST(NetworkSimulatorRegistry, WriteRead_ByIndex_AliasesToStationAddress) {
+TEST(NetworkSimulatorRegistry, WriteRead_ByIndex_AliasesToStationAddress)
+{
     NetworkSimulator sim;
     sim.initialize();
     sim.clearSlaves();
     sim.setVirtualSlaveCount(3); // index:0->addr1, 1->addr2, 2->addr3
 
-    constexpr uint16_t REG     = 0x0102;
-    uint8_t            wbuf[2] = {0xAB, 0xCD};
+    constexpr uint16_t REG = 0x0102;
+    uint8_t wbuf[2]        = {0xAB, 0xCD};
     ASSERT_TRUE(sim.writeToSlaveByIndex(1, REG, wbuf, sizeof(wbuf))); // idx1 -> addr2
 
     uint8_t r2[2] = {0};

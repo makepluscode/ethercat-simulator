@@ -9,14 +9,17 @@
 
 #include "kickcat/protocol.h"
 
-namespace ethercat_sim::simulation {
+namespace ethercat_sim::simulation
+{
 
-class VirtualSlave {
+class VirtualSlave
+{
   public:
     VirtualSlave(std::uint16_t address = 0, std::uint32_t vendor_id = 0,
                  std::uint32_t product_code = 0, std::string name = {})
         : address_(address), vendor_id_(vendor_id), product_code_(product_code),
-          name_(std::move(name)) {
+          name_(std::move(name))
+    {
         // initialize a minimal ESC register map
         // Set STATION_ADDR (0x0010) with the configured address (LE)
         regs_.at(0x0010) = static_cast<uint8_t>(address_ & 0xFF);
@@ -39,45 +42,57 @@ class VirtualSlave {
         initializeEeprom_();
     }
 
-    std::uint16_t address() const noexcept {
+    std::uint16_t address() const noexcept
+    {
         return address_;
     }
-    std::uint32_t vendorId() const noexcept {
+    std::uint32_t vendorId() const noexcept
+    {
         return vendor_id_;
     }
-    std::uint32_t productCode() const noexcept {
+    std::uint32_t productCode() const noexcept
+    {
         return product_code_;
     }
-    const std::string& name() const noexcept {
+    const std::string& name() const noexcept
+    {
         return name_;
     }
 
-    bool online() const noexcept {
+    bool online() const noexcept
+    {
         return online_;
     }
-    void setOnline(bool on) noexcept {
+    void setOnline(bool on) noexcept
+    {
         online_ = on;
         syncCoreRegisters_();
     }
 
-    ::kickcat::State alState() const noexcept {
+    ::kickcat::State alState() const noexcept
+    {
         return al_state_;
     }
-    void setALState(::kickcat::State s) noexcept {
+    void setALState(::kickcat::State s) noexcept
+    {
         al_state_ = s;
         syncCoreRegisters_();
     }
 
     // Minimal register map (byte-addressable)
-    bool read(std::uint16_t reg, std::uint8_t* dst, std::size_t len) const noexcept {
+    bool read(std::uint16_t reg, std::uint8_t* dst, std::size_t len) const noexcept
+    {
         // Handle EEPROM data read (4 bytes per request)
-        if (reg == ::kickcat::reg::EEPROM_DATA && len >= 4) {
+        if (reg == ::kickcat::reg::EEPROM_DATA && len >= 4)
+        {
             uint32_t val = 0;
             uint16_t lo = 0, hi = 0;
-            if (eeprom_addr_ < eeprom_.size()) {
+            if (eeprom_addr_ < eeprom_.size())
+            {
                 lo = eeprom_[eeprom_addr_];
             }
-            if (eeprom_addr_ + 1 < eeprom_.size()) {
+            if (eeprom_addr_ + 1 < eeprom_.size())
+            {
                 hi = eeprom_[eeprom_addr_ + 1];
             }
             val = static_cast<uint32_t>(lo) | (static_cast<uint32_t>(hi) << 16);
@@ -90,14 +105,16 @@ class VirtualSlave {
         }
 
         // ESC register space
-        if ((static_cast<std::size_t>(reg) + len) <= regs_.size()) {
+        if ((static_cast<std::size_t>(reg) + len) <= regs_.size())
+        {
             std::copy(regs_.begin() + reg, regs_.begin() + reg + len, dst);
             return true;
         }
 
         // Mailbox send area (slave -> master)
         if ((reg >= mb_send_offset_) &&
-            ((static_cast<std::size_t>(reg) + len) <= (mb_send_offset_ + mb_send_size_))) {
+            ((static_cast<std::size_t>(reg) + len) <= (mb_send_offset_ + mb_send_size_)))
+        {
             std::size_t off = static_cast<std::size_t>(reg - mb_send_offset_);
             std::size_t n   = std::min(len, mb_out_.size() - off);
             std::copy(mb_out_.begin() + off, mb_out_.begin() + off + n, dst);
@@ -110,9 +127,11 @@ class VirtualSlave {
         return false;
     }
 
-    bool write(std::uint16_t reg, std::uint8_t const* src, std::size_t len) noexcept {
+    bool write(std::uint16_t reg, std::uint8_t const* src, std::size_t len) noexcept
+    {
         // Handle EEPROM control write (request)
-        if (reg == ::kickcat::reg::EEPROM_CONTROL && len >= 6) {
+        if (reg == ::kickcat::reg::EEPROM_CONTROL && len >= 6)
+        {
             // struct { uint16_t command; uint16_t addressLow; uint16_t addressHigh; }
             uint16_t cmd = static_cast<uint16_t>(src[0] | (static_cast<uint16_t>(src[1]) << 8));
             uint16_t addressLow =
@@ -124,35 +143,43 @@ class VirtualSlave {
         }
 
         // ESC register space
-        if ((static_cast<std::size_t>(reg) + len) <= regs_.size()) {
+        if ((static_cast<std::size_t>(reg) + len) <= regs_.size())
+        {
             std::copy(src, src + len, regs_.begin() + reg);
-        } else if ((reg >= mb_recv_offset_) &&
-                   ((static_cast<std::size_t>(reg) + len) <= (mb_recv_offset_ + mb_recv_size_))) {
+        }
+        else if ((reg >= mb_recv_offset_) &&
+                 ((static_cast<std::size_t>(reg) + len) <= (mb_recv_offset_ + mb_recv_size_)))
+        {
             // Mailbox recv area (master -> slave)
             std::size_t off = static_cast<std::size_t>(reg - mb_recv_offset_);
             std::size_t n   = std::min(len, mb_in_.size() - off);
             std::copy(src, src + n, mb_in_.begin() + off);
             handleMailboxWrite_(off, n);
             return true;
-        } else if ((reg >= ::kickcat::reg::SYNC_MANAGER) &&
-                   (reg < (::kickcat::reg::SYNC_MANAGER + 16))) {
+        }
+        else if ((reg >= ::kickcat::reg::SYNC_MANAGER) &&
+                 (reg < (::kickcat::reg::SYNC_MANAGER + 16)))
+        {
             // Update mailbox SM config if written via FPWR
             // We accept up to 2 SM entries (8 bytes each)
             std::size_t remaining = len;
             std::size_t pos       = 0;
-            while (remaining >= 8) {
+            while (remaining >= 8)
+            {
                 auto start =
                     static_cast<uint16_t>(src[pos] | (static_cast<uint16_t>(src[pos + 1]) << 8));
-                auto length   = static_cast<uint16_t>(src[pos + 2] |
-                                                      (static_cast<uint16_t>(src[pos + 3]) << 8));
-                int  sm_index = static_cast<int>((reg + pos - ::kickcat::reg::SYNC_MANAGER) / 8);
-                if (sm_index == 0) {
+                auto length  = static_cast<uint16_t>(src[pos + 2] |
+                                                     (static_cast<uint16_t>(src[pos + 3]) << 8));
+                int sm_index = static_cast<int>((reg + pos - ::kickcat::reg::SYNC_MANAGER) / 8);
+                if (sm_index == 0)
+                {
                     mb_recv_offset_ = start;
                     mb_recv_size_   = length;
                     if (mb_in_.size() != mb_recv_size_)
                         mb_in_.assign(mb_recv_size_, 0);
                 }
-                if (sm_index == 1) {
+                if (sm_index == 1)
+                {
                     mb_send_offset_ = start;
                     mb_send_size_   = length;
                     if (mb_out_.size() != mb_send_size_)
@@ -163,17 +190,21 @@ class VirtualSlave {
             }
             syncSMRegisters_();
             return true;
-        } else {
+        }
+        else
+        {
             return false;
         }
 
         // If STATION_ADDR is written, keep internal address in sync
-        if (reg == 0x0010 && len >= 2) {
+        if (reg == 0x0010 && len >= 2)
+        {
             address_ = static_cast<std::uint16_t>(regs_[0x0010] |
                                                   (static_cast<uint16_t>(regs_[0x0011]) << 8));
         }
         // If AL_CONTROL written, update AL_STATUS accordingly (minimal behavior)
-        if (reg == ::kickcat::reg::AL_CONTROL && len >= 1) {
+        if (reg == ::kickcat::reg::AL_CONTROL && len >= 1)
+        {
             uint16_t ctrl_value =
                 static_cast<uint16_t>(regs_[::kickcat::reg::AL_CONTROL]) |
                 (static_cast<uint16_t>(regs_[::kickcat::reg::AL_CONTROL + 1]) << 8);
@@ -183,35 +214,41 @@ class VirtualSlave {
     }
 
     // Optional: return digital inputs bitfield for PDO mapping (LSB=channel0)
-    virtual bool readDigitalInputsBitfield(uint32_t& /*bits_out*/) const noexcept {
+    virtual bool readDigitalInputsBitfield(uint32_t& /*bits_out*/) const noexcept
+    {
         return false;
     }
 
     // Make these public for access from NetworkSimulator
-    void setInputPDOMapped(bool v) noexcept {
+    void setInputPDOMapped(bool v) noexcept
+    {
         input_pdo_mapped_ = v;
     }
-    bool inputPDOMapped() const noexcept {
+    bool inputPDOMapped() const noexcept
+    {
         return input_pdo_mapped_;
     }
 
   protected:
     // Allow derived classes (specific slaves) to answer SDO Upload values
     virtual bool onSdoUpload(uint16_t /*index*/, uint8_t /*subindex*/,
-                             uint32_t& /*value*/) const noexcept {
+                             uint32_t& /*value*/) const noexcept
+    {
         return false;
     }
 
     // Allow derived classes to handle SDO Download writes (expedited only, up to 4 bytes)
     virtual bool onSdoDownload(uint16_t /*index*/, uint8_t /*subindex*/, uint32_t /*value*/,
-                               uint8_t /*nbytes*/) noexcept {
+                               uint8_t /*nbytes*/) noexcept
+    {
         return false;
     }
 
     // (legacy placeholder removed)
 
   private:
-    void initializeEeprom_() noexcept {
+    void initializeEeprom_() noexcept
+    {
         // Basic EEPROM structure for EtherCAT slave
         // PDI Control (0x0000-0x0001)
         eeprom_[0] = 0x0180; // PDI type: 01 (4 Digital I/O), Control: 80
@@ -274,10 +311,12 @@ class VirtualSlave {
         eeprom_[0x60] = 0xFFFF; // End category
     }
 
-    void syncCoreRegisters_() noexcept {
+    void syncCoreRegisters_() noexcept
+    {
         // DL_STATUS (0x110): set basic communication flags when online
         uint16_t dl = 0;
-        if (online_) {
+        if (online_)
+        {
             // PDI_op (bit0) and COM_port0(bit9), PL_port0(bit4)
             dl |= (1u << 0); // PDI_op
             dl |= (1u << 4); // PL_port0
@@ -288,7 +327,8 @@ class VirtualSlave {
 
         // AL_STATUS (0x130): current state in low byte
         uint8_t status = static_cast<uint8_t>(al_state_);
-        if (ack_requested_) {
+        if (ack_requested_)
+        {
             status |= static_cast<uint8_t>(::kickcat::State::ACK);
         }
         regs_.at(::kickcat::reg::AL_STATUS + 0) = status;
@@ -300,7 +340,8 @@ class VirtualSlave {
             static_cast<uint8_t>((al_status_code_ >> 8) & 0xFF);
     }
 
-    void syncSMRegisters_() noexcept {
+    void syncSMRegisters_() noexcept
+    {
         // SM0: mailbox out (master -> slave)
         regs_.at(::kickcat::reg::SYNC_MANAGER_0 + 0) = static_cast<uint8_t>(mb_recv_offset_ & 0xFF);
         regs_.at(::kickcat::reg::SYNC_MANAGER_0 + 1) =
@@ -319,7 +360,8 @@ class VirtualSlave {
         syncSMStatus_();
     }
 
-    void syncSMStatus_() const noexcept {
+    void syncSMStatus_() const noexcept
+    {
         // Update only status byte for SM0 and SM1
         // SM0 status: we keep writable -> not full
         auto& reg0 = const_cast<std::vector<std::uint8_t>&>(regs_);
@@ -329,8 +371,10 @@ class VirtualSlave {
         reg0[::kickcat::reg::SYNC_MANAGER_1 + ::kickcat::reg::SM_STATS] = st1;
     }
 
-    static int stateRank_(::kickcat::State s) noexcept {
-        switch (s) {
+    static int stateRank_(::kickcat::State s) noexcept
+    {
+        switch (s)
+        {
         case ::kickcat::State::INIT:
             return 1;
         case ::kickcat::State::PRE_OP:
@@ -346,51 +390,59 @@ class VirtualSlave {
         }
     }
 
-    bool handleAlControlWrite_(uint16_t ctrl) noexcept {
+    bool handleAlControlWrite_(uint16_t ctrl) noexcept
+    {
         constexpr uint16_t STATE_MASK = 0x000F;
-        ::kickcat::State   requested  = static_cast<::kickcat::State>(ctrl & STATE_MASK);
-        bool               ack_bit    = (ctrl & static_cast<uint16_t>(::kickcat::State::ACK)) != 0;
+        ::kickcat::State requested    = static_cast<::kickcat::State>(ctrl & STATE_MASK);
+        bool ack_bit                  = (ctrl & static_cast<uint16_t>(::kickcat::State::ACK)) != 0;
 
         std::cout << "[slave " << address_ << "] AL_CONTROL write: 0x" << std::hex << ctrl
                   << " current state: " << static_cast<int>(al_state_) << std::dec << "\n";
 
-        if (ack_bit) {
+        if (ack_bit)
+        {
             ack_requested_  = false;
             al_status_code_ = 0;
         }
 
-        if (requested == ::kickcat::State::INVALID) {
+        if (requested == ::kickcat::State::INVALID)
+        {
             syncCoreRegisters_();
             return true; // ACK only
         }
 
-        if (!stateChangeNeeded_(requested)) {
+        if (!stateChangeNeeded_(requested))
+        {
             syncCoreRegisters_();
             return true;
         }
 
-        int  current_rank   = stateRank_(al_state_);
-        int  requested_rank = stateRank_(requested);
+        int current_rank   = stateRank_(al_state_);
+        int requested_rank = stateRank_(requested);
         bool ack_only =
             ack_bit && !ack_requested_ && requested_rank > 0 && requested_rank < current_rank;
-        if (ack_only) {
+        if (ack_only)
+        {
             al_status_code_ = 0;
             syncCoreRegisters_();
             std::cout << "[slave " << address_ << "] Ack-only write ignored state change\n";
             return true;
         }
 
-        if (!isTransitionAllowed_(al_state_, requested)) {
+        if (!isTransitionAllowed_(al_state_, requested))
+        {
             signalError_(0x0011); // Invalid state change request
             return true;
         }
 
-        if (!preconditionsMet_(requested)) {
+        if (!preconditionsMet_(requested))
+        {
             signalError_(0x0011);
             return true;
         }
 
-        switch (requested) {
+        switch (requested)
+        {
         case ::kickcat::State::INIT:
             enterInit_();
             break;
@@ -419,12 +471,15 @@ class VirtualSlave {
         return true;
     }
 
-    bool stateChangeNeeded_(::kickcat::State requested) const noexcept {
+    bool stateChangeNeeded_(::kickcat::State requested) const noexcept
+    {
         return requested != ::kickcat::State::INVALID && requested != al_state_;
     }
 
-    bool isTransitionAllowed_(::kickcat::State from, ::kickcat::State to) const noexcept {
-        switch (from) {
+    bool isTransitionAllowed_(::kickcat::State from, ::kickcat::State to) const noexcept
+    {
+        switch (from)
+        {
         case ::kickcat::State::INIT:
             return to == ::kickcat::State::PRE_OP || to == ::kickcat::State::INIT;
         case ::kickcat::State::PRE_OP:
@@ -443,20 +498,24 @@ class VirtualSlave {
         }
     }
 
-    bool preconditionsMet_(::kickcat::State target) const noexcept {
-        if (target == ::kickcat::State::BOOT) {
+    bool preconditionsMet_(::kickcat::State target) const noexcept
+    {
+        if (target == ::kickcat::State::BOOT)
+        {
             return false;
         }
 
         // For SAFE_OP and OPERATIONAL, PDO mapping must be configured
-        if (target == ::kickcat::State::SAFE_OP || target == ::kickcat::State::OPERATIONAL) {
+        if (target == ::kickcat::State::SAFE_OP || target == ::kickcat::State::OPERATIONAL)
+        {
             return input_pdo_mapped_;
         }
 
         return true;
     }
 
-    void signalError_(uint16_t code) noexcept {
+    void signalError_(uint16_t code) noexcept
+    {
         al_status_code_ = code;
         ack_requested_  = true;
         syncCoreRegisters_();
@@ -464,25 +523,30 @@ class VirtualSlave {
                   << "\n";
     }
 
-    void enterInit_() noexcept {
+    void enterInit_() noexcept
+    {
         al_state_      = ::kickcat::State::INIT;
         ack_requested_ = false;
         mb_have_reply_ = false;
     }
 
-    void enterPreOp_() noexcept {
+    void enterPreOp_() noexcept
+    {
         al_state_ = ::kickcat::State::PRE_OP;
     }
 
-    void enterSafeOp_() noexcept {
+    void enterSafeOp_() noexcept
+    {
         al_state_ = ::kickcat::State::SAFE_OP;
     }
 
-    void enterOperational_() noexcept {
+    void enterOperational_() noexcept
+    {
         al_state_ = ::kickcat::State::OPERATIONAL;
     }
 
-    void handleMailboxWrite_(std::size_t offset, std::size_t len) noexcept {
+    void handleMailboxWrite_(std::size_t offset, std::size_t len) noexcept
+    {
         (void) offset;
         (void) len;
         // For simplicity, assume a whole message is written at once starting at offset 0
@@ -491,7 +555,7 @@ class VirtualSlave {
         auto* sdo    = ::kickcat::pointData<::kickcat::CoE::ServiceData>(coe);
         // Minimal SDO handling: Upload/Download expedited only
         uint16_t req_index = sdo->index;
-        uint8_t  req_sub   = sdo->subindex;
+        uint8_t req_sub    = sdo->subindex;
 
         // Prepare response header
         std::fill(mb_out_.begin(), mb_out_.end(), 0);
@@ -509,24 +573,35 @@ class VirtualSlave {
         rs->block_size     = 0;
 
         if (coe->service == ::kickcat::CoE::SDO_REQUEST &&
-            sdo->command == ::kickcat::CoE::SDO::request::UPLOAD) {
-            uint32_t value   = 0;
-            bool     handled = false;
-            if (req_index == 0x1018 && req_sub == 1) {
+            sdo->command == ::kickcat::CoE::SDO::request::UPLOAD)
+        {
+            uint32_t value = 0;
+            bool handled   = false;
+            if (req_index == 0x1018 && req_sub == 1)
+            {
                 value   = vendor_id_;
                 handled = true;
-            } else if (req_index == 0x1018 && req_sub == 2) {
+            }
+            else if (req_index == 0x1018 && req_sub == 2)
+            {
                 value   = product_code_;
                 handled = true;
-            } else if (req_index == 0x1018 && req_sub == 3) {
+            }
+            else if (req_index == 0x1018 && req_sub == 3)
+            {
                 value   = 0;
                 handled = true;
-            } else if (req_index == 0x1018 && req_sub == 4) {
+            }
+            else if (req_index == 0x1018 && req_sub == 4)
+            {
                 value   = 0;
                 handled = true;
-            } else {
+            }
+            else
+            {
                 uint32_t v = 0;
-                if (onSdoUpload(req_index, req_sub, v)) {
+                if (onSdoUpload(req_index, req_sub, v))
+                {
                     value   = v;
                     handled = true;
                 }
@@ -535,8 +610,10 @@ class VirtualSlave {
             rs->command = ::kickcat::CoE::SDO::response::UPLOAD;
             std::memcpy(::kickcat::pointData<uint8_t>(rs), &value, sizeof(uint32_t));
             rh->len = 10; // expedited payload
-        } else if (coe->service == ::kickcat::CoE::SDO_REQUEST &&
-                   sdo->command == ::kickcat::CoE::SDO::request::DOWNLOAD) {
+        }
+        else if (coe->service == ::kickcat::CoE::SDO_REQUEST &&
+                 sdo->command == ::kickcat::CoE::SDO::request::DOWNLOAD)
+        {
             // Read up to 4 bytes of expedited data
             uint32_t v = 0;
             std::memcpy(&v, ::kickcat::pointData<uint8_t>(sdo), sizeof(uint32_t));
@@ -545,7 +622,9 @@ class VirtualSlave {
             // Download ack response (no data)
             rs->command = ::kickcat::CoE::SDO::response::DOWNLOAD;
             rh->len     = 10; // minimal header length kept consistent
-        } else {
+        }
+        else
+        {
             // Unknown, still respond with UPLOAD and zero
             rs->command   = ::kickcat::CoE::SDO::response::UPLOAD;
             uint32_t zero = 0;
@@ -557,28 +636,28 @@ class VirtualSlave {
         syncSMStatus_();
     }
 
-    std::uint16_t             address_{};
-    std::uint32_t             vendor_id_{};
-    std::uint32_t             product_code_{};
-    std::string               name_;
-    bool                      online_{true};
-    ::kickcat::State          al_state_{::kickcat::State::INIT};
-    uint16_t                  al_status_code_{0};
+    std::uint16_t address_{};
+    std::uint32_t vendor_id_{};
+    std::uint32_t product_code_{};
+    std::string name_;
+    bool online_{true};
+    ::kickcat::State al_state_{::kickcat::State::INIT};
+    uint16_t al_status_code_{0};
     std::vector<std::uint8_t> regs_ = std::vector<std::uint8_t>(4096, 0);
-    bool                      input_pdo_mapped_{false};
-    bool                      ack_requested_{false};
+    bool input_pdo_mapped_{false};
+    bool ack_requested_{false};
 
     // Mailbox (standard) minimal simulation
-    uint16_t                          mb_recv_offset_{0};
-    uint16_t                          mb_recv_size_{0};
-    uint16_t                          mb_send_offset_{0};
-    uint16_t                          mb_send_size_{0};
-    mutable bool                      mb_have_reply_{false};
+    uint16_t mb_recv_offset_{0};
+    uint16_t mb_recv_size_{0};
+    uint16_t mb_send_offset_{0};
+    uint16_t mb_send_size_{0};
+    mutable bool mb_have_reply_{false};
     mutable std::vector<std::uint8_t> mb_out_;
-    std::vector<std::uint8_t>         mb_in_;
+    std::vector<std::uint8_t> mb_in_;
 
     // EEPROM / SII minimal stub
-    mutable uint16_t      eeprom_addr_{0}; // word address for next read
+    mutable uint16_t eeprom_addr_{0}; // word address for next read
     std::vector<uint16_t> eeprom_ = std::vector<uint16_t>(128, 0);
 };
 

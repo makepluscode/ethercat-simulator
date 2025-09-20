@@ -8,7 +8,8 @@
 using ethercat_sim::communication::EtherCATFrame;
 using ethercat_sim::simulation::NetworkSimulator;
 
-TEST(NetworkSimulator, Loopback_WhenLinkUp_SendsAndReceives) {
+TEST(NetworkSimulator, Loopback_WhenLinkUp_SendsAndReceives)
+{
     NetworkSimulator sim;
     sim.initialize();
     sim.setLinkUp(true);
@@ -22,7 +23,8 @@ TEST(NetworkSimulator, Loopback_WhenLinkUp_SendsAndReceives) {
     EXPECT_EQ(rx.payload, tx.payload);
 }
 
-TEST(NetworkSimulator, SendReceive_WhenLinkDown_Fails) {
+TEST(NetworkSimulator, SendReceive_WhenLinkDown_Fails)
+{
     NetworkSimulator sim;
     sim.initialize();
     sim.setLinkUp(false);
@@ -35,7 +37,8 @@ TEST(NetworkSimulator, SendReceive_WhenLinkDown_Fails) {
     EXPECT_FALSE(sim.receiveFrame(rx));
 }
 
-TEST(NetworkSimulator, VirtualSlaveRegistry_AddAndCount) {
+TEST(NetworkSimulator, VirtualSlaveRegistry_AddAndCount)
+{
     using ethercat_sim::simulation::VirtualSlave;
 
     NetworkSimulator sim;
@@ -54,7 +57,8 @@ TEST(NetworkSimulator, VirtualSlaveRegistry_AddAndCount) {
     EXPECT_EQ(sim.virtualSlaveCount(), 3u);
 }
 
-TEST(NetworkSimulator, RegisterReadWrite_ByStationAddress) {
+TEST(NetworkSimulator, RegisterReadWrite_ByStationAddress)
+{
     using ethercat_sim::simulation::VirtualSlave;
 
     NetworkSimulator sim;
@@ -65,8 +69,8 @@ TEST(NetworkSimulator, RegisterReadWrite_ByStationAddress) {
     sim.addVirtualSlave(s1);
 
     // Use a non-identity register to avoid changing station address
-    constexpr std::uint16_t kReg    = 0x0100; // ESC_DL_FWRD (arbitrary for R/W test)
-    std::uint8_t            wbuf[4] = {0xDE, 0xAD, 0xBE, 0xEF};
+    constexpr std::uint16_t kReg = 0x0100; // ESC_DL_FWRD (arbitrary for R/W test)
+    std::uint8_t wbuf[4]         = {0xDE, 0xAD, 0xBE, 0xEF};
     EXPECT_TRUE(sim.writeToSlave(1, kReg, wbuf, sizeof(wbuf)));
 
     std::uint8_t rbuf[4] = {0};

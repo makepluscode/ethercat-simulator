@@ -6,14 +6,19 @@
 
 #include "KickCAT.h"
 
-namespace kickcat {
-constexpr const char* strip_path(const char* path) {
+namespace kickcat
+{
+constexpr const char* strip_path(const char* path)
+{
     const char* file = path;
-    while (*path) {
-        if (*path++ == '/') {
+    while (*path)
+    {
+        if (*path++ == '/')
+        {
             file = path;
         }
-        if (*path == ':') {
+        if (*path == ':')
+        {
             break;
         }
     }
@@ -33,7 +38,8 @@ constexpr const char* strip_path(const char* path) {
 
 #ifdef DEBUG
 #define DEBUG_PRINT(...)                                                                           \
-    do {                                                                                           \
+    do                                                                                             \
+    {                                                                                              \
         fprintf(stderr, "DEBUG: %s ", LOCATION());                                                 \
         fprintf(stderr, ##__VA_ARGS__);                                                            \
     } while (0);
@@ -41,10 +47,12 @@ constexpr const char* strip_path(const char* path) {
 #define DEBUG_PRINT(...)
 #endif
 
-struct Error : public std::exception {
+struct Error : public std::exception
+{
     Error(char const* message) : message_(message) {}
 
-    char const* what() const noexcept override {
+    char const* what() const noexcept override
+    {
         return message_;
     }
 
@@ -52,10 +60,12 @@ struct Error : public std::exception {
     char const* message_;
 };
 
-struct ErrorCode : public Error {
+struct ErrorCode : public Error
+{
     ErrorCode(char const* message, int32_t code) : Error(message), code_{code} {}
 
-    int32_t code() const noexcept {
+    int32_t code() const noexcept
+    {
         return code_;
     }
 
@@ -63,12 +73,15 @@ struct ErrorCode : public Error {
     int32_t code_;
 };
 
-struct ErrorDatagram : public Error {
-    ErrorDatagram(char const* message, DatagramState state) : Error(message) {
+struct ErrorDatagram : public Error
+{
+    ErrorDatagram(char const* message, DatagramState state) : Error(message)
+    {
         state_ = state;
     }
 
-    DatagramState state() const noexcept {
+    DatagramState state() const noexcept
+    {
         return state_;
     }
 

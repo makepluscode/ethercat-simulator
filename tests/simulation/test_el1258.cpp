@@ -11,14 +11,15 @@
 using ethercat_sim::simulation::NetworkSimulator;
 using ethercat_sim::simulation::slaves::EL1258Slave;
 
-namespace {
+namespace
+{
 
-bool sdo_upload(NetworkSimulator& sim, uint16_t addr, uint16_t index, uint8_t subidx,
-                uint32_t& out) {
+bool sdo_upload(NetworkSimulator& sim, uint16_t addr, uint16_t index, uint8_t subidx, uint32_t& out)
+{
     uint8_t msg[64] = {0};
-    auto*   mbx     = reinterpret_cast<::kickcat::mailbox::Header*>(msg);
-    auto*   coe     = ::kickcat::pointData<::kickcat::CoE::Header>(mbx);
-    auto*   sdo     = ::kickcat::pointData<::kickcat::CoE::ServiceData>(coe);
+    auto* mbx       = reinterpret_cast<::kickcat::mailbox::Header*>(msg);
+    auto* coe       = ::kickcat::pointData<::kickcat::CoE::Header>(mbx);
+    auto* sdo       = ::kickcat::pointData<::kickcat::CoE::ServiceData>(coe);
     mbx->len        = 10;
     mbx->type       = ::kickcat::mailbox::CoE;
     mbx->count      = 1;
@@ -42,11 +43,12 @@ bool sdo_upload(NetworkSimulator& sim, uint16_t addr, uint16_t index, uint8_t su
 }
 
 bool sdo_download_u32(NetworkSimulator& sim, uint16_t addr, uint16_t index, uint8_t subidx,
-                      uint32_t value) {
+                      uint32_t value)
+{
     uint8_t msg[64] = {0};
-    auto*   mbx     = reinterpret_cast<::kickcat::mailbox::Header*>(msg);
-    auto*   coe     = ::kickcat::pointData<::kickcat::CoE::Header>(mbx);
-    auto*   sdo     = ::kickcat::pointData<::kickcat::CoE::ServiceData>(coe);
+    auto* mbx       = reinterpret_cast<::kickcat::mailbox::Header*>(msg);
+    auto* coe       = ::kickcat::pointData<::kickcat::CoE::Header>(mbx);
+    auto* sdo       = ::kickcat::pointData<::kickcat::CoE::ServiceData>(coe);
     mbx->len        = 10;
     mbx->type       = ::kickcat::mailbox::CoE;
     mbx->count      = 1;
@@ -70,7 +72,8 @@ bool sdo_download_u32(NetworkSimulator& sim, uint16_t addr, uint16_t index, uint
 
 } // namespace
 
-TEST(EL1258, DI_States_PowerAndButton) {
+TEST(EL1258, DI_States_PowerAndButton)
+{
     NetworkSimulator sim;
     sim.initialize();
     sim.clearSlaves();
@@ -103,7 +106,8 @@ TEST(EL1258, DI_States_PowerAndButton) {
     EXPECT_EQ(v, 0u);
 }
 
-TEST(EL1258, PDO_Mapping_To_LogicalMemory) {
+TEST(EL1258, PDO_Mapping_To_LogicalMemory)
+{
     NetworkSimulator sim;
     sim.initialize();
     sim.clearSlaves();
@@ -135,7 +139,8 @@ TEST(EL1258, PDO_Mapping_To_LogicalMemory) {
     EXPECT_EQ(byte & 0x01, 0x01);
 }
 
-TEST(EL1258, AL_Transition_Gating_By_PDO_Mapping) {
+TEST(EL1258, AL_Transition_Gating_By_PDO_Mapping)
+{
     NetworkSimulator sim;
     sim.initialize();
     sim.clearSlaves();
@@ -170,7 +175,8 @@ TEST(EL1258, AL_Transition_Gating_By_PDO_Mapping) {
     EXPECT_EQ(al_status[0], static_cast<uint8_t>(::kickcat::State::OPERATIONAL));
 }
 
-TEST(EL1258, CoE_TxPDO_Mapping_Enables_SafeOp) {
+TEST(EL1258, CoE_TxPDO_Mapping_Enables_SafeOp)
+{
     NetworkSimulator sim;
     sim.initialize();
     sim.clearSlaves();
@@ -200,7 +206,8 @@ TEST(EL1258, CoE_TxPDO_Mapping_Enables_SafeOp) {
     EXPECT_EQ(al_st[0], static_cast<uint8_t>(::kickcat::State::SAFE_OP));
 }
 
-TEST(EL1258, DefaultTxPdoMapping_Enables_SafeOp) {
+TEST(EL1258, DefaultTxPdoMapping_Enables_SafeOp)
+{
     NetworkSimulator sim;
     sim.initialize();
     sim.clearSlaves();
@@ -218,7 +225,8 @@ TEST(EL1258, DefaultTxPdoMapping_Enables_SafeOp) {
     EXPECT_EQ(al_st[0], static_cast<uint8_t>(::kickcat::State::SAFE_OP));
 }
 
-TEST(EL1258, InvertMask_SDO) {
+TEST(EL1258, InvertMask_SDO)
+{
     NetworkSimulator sim;
     sim.initialize();
     sim.clearSlaves();
@@ -245,7 +253,8 @@ TEST(EL1258, InvertMask_SDO) {
     EXPECT_EQ(v, 1u);
 }
 
-TEST(EL1258, Debounce_Global_SDO) {
+TEST(EL1258, Debounce_Global_SDO)
+{
     using namespace std::chrono_literals;
     NetworkSimulator sim;
     sim.initialize();
@@ -270,7 +279,8 @@ TEST(EL1258, Debounce_Global_SDO) {
     EXPECT_EQ(v, 1u);
 }
 
-TEST(EL1258, CoE_Basic_Info) {
+TEST(EL1258, CoE_Basic_Info)
+{
     NetworkSimulator sim;
     sim.initialize();
     sim.clearSlaves();

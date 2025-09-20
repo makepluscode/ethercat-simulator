@@ -2,11 +2,13 @@
 
 #include <memory>
 
-namespace ftxui {
+namespace ftxui
+{
 class ComponentBase;
 }
 
-namespace ethercat_sim::app::master {
+namespace ethercat_sim::app::master
+{
 
 class MasterController;
 class MasterModel;

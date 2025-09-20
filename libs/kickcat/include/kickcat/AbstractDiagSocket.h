@@ -4,11 +4,13 @@
 #include "Error.h"
 #include "Frame.h"
 
-namespace kickcat {
+namespace kickcat
+{
 /// \brief   A socket interface for diagnostic interface (cf. ETG.8200)
 /// \details This socket serves as an abstraction on classical socket (UDP, TCP, etc.)
 ///          and shall be able to associate an identifier to income request and reply
-class AbstractDiagSocket {
+class AbstractDiagSocket
+{
   public:
     AbstractDiagSocket()          = default;
     virtual ~AbstractDiagSocket() = default;
@@ -32,7 +34,8 @@ class AbstractDiagSocket {
 
   protected:
     // Helper to compute next index (aka client identifier) for subclasses
-    void nextIndex() {
+    void nextIndex()
+    {
         index_ = (index_ + 1) & (mailbox::GATEWAY_MAX_REQUEST - 1);
     }
     uint16_t index_{0};

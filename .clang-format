@@ -5,11 +5,11 @@ UseTab: Never
 ColumnLimit: 100
 PointerAlignment: Left
 AlignConsecutiveAssignments: true
-AlignConsecutiveDeclarations: true
+AlignConsecutiveDeclarations: false
 AlignTrailingComments: true
 AllowShortFunctionsOnASingleLine: Empty
 AllowShortIfStatementsOnASingleLine: Never
-BreakBeforeBraces: Attach
+BreakBeforeBraces: Allman
 NamespaceIndentation: None
 SpaceBeforeParens: ControlStatements
 SpacesInParentheses: false

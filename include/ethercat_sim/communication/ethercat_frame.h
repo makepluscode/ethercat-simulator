@@ -3,10 +3,12 @@
 #include <cstdint>
 #include <vector>
 
-namespace ethercat_sim::communication {
+namespace ethercat_sim::communication
+{
 
 // Minimal EtherCAT frame placeholder inspired by KickCAT usage patterns
-struct EtherCATFrame {
+struct EtherCATFrame
+{
     std::vector<std::uint8_t> payload;
 };
 

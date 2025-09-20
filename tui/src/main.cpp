@@ -26,17 +26,21 @@
 #include <fastdds/dds/topic/Topic.hpp>
 #include <fastdds/rtps/transport/shared_mem/SharedMemTransportDescriptor.hpp>
 
-namespace {
+namespace
+{
 std::atomic<bool> g_running{true};
 
-void handle_signal(int) noexcept {
+void handle_signal(int) noexcept
+{
     g_running.store(false, std::memory_order_relaxed);
 }
 } // namespace
 
-int main() {
+int main()
+{
     // Smoke-test mode for CI/CTest: render once and exit
-    if (std::getenv("TUI_SMOKE_TEST")) {
+    if (std::getenv("TUI_SMOKE_TEST"))
+    {
         auto doc = ftxui::vbox({ftxui::text("EtherCAT Simulator") | ftxui::bold |
                                     ftxui::color(ftxui::Color::Green),
                                 ftxui::separator(), ftxui::text("TUI smoke test")}) |
@@ -53,9 +57,9 @@ int main() {
     std::signal(SIGTERM, handle_signal);
 
     // Shared state for received messages
-    std::mutex               mtx;
+    std::mutex mtx;
     std::vector<std::string> messages;
-    const std::size_t        max_messages = 100;
+    const std::size_t max_messages = 100;
 
     // FastDDS setup
     eprosima::fastdds::dds::DomainParticipant* participant = nullptr;
@@ -69,16 +73,18 @@ int main() {
             eprosima::fastdds::dds::DomainParticipantFactory::get_instance()->create_participant(
                 0, qos);
     }
-    if (!participant) {
+    if (!participant)
+    {
         participant =
             eprosima::fastdds::dds::DomainParticipantFactory::get_instance()->create_participant(
                 0, eprosima::fastdds::dds::PARTICIPANT_QOS_DEFAULT);
     }
 
     eprosima::fastdds::dds::Subscriber* subscriber = nullptr;
-    eprosima::fastdds::dds::Topic*      topic      = nullptr;
+    eprosima::fastdds::dds::Topic* topic           = nullptr;
     eprosima::fastdds::dds::DataReader* reader     = nullptr;
-    if (participant) {
+    if (participant)
+    {
         eprosima::fastdds::dds::TypeSupport type(
             new ethercat_sim::communication::TextMsgPubSubType());
         type.register_type(participant);
@@ -95,71 +101,90 @@ int main() {
 
     // DDS polling thread (append received messages)
     std::thread dds_thread;
-    if (reader) {
-        dds_thread = std::thread([&]() {
-            while (g_running.load(std::memory_order_relaxed)) {
-                ethercat_sim::communication::TextMsg msg;
-                eprosima::fastdds::dds::SampleInfo   info;
-                auto                                 rc = reader->take_next_sample(&msg, &info);
-                if (rc == eprosima::fastdds::dds::RETCODE_OK &&
-                    info.instance_state == eprosima::fastdds::dds::ALIVE_INSTANCE_STATE) {
+    if (reader)
+    {
+        dds_thread = std::thread(
+            [&]()
+            {
+                while (g_running.load(std::memory_order_relaxed))
+                {
+                    ethercat_sim::communication::TextMsg msg;
+                    eprosima::fastdds::dds::SampleInfo info;
+                    auto rc = reader->take_next_sample(&msg, &info);
+                    if (rc == eprosima::fastdds::dds::RETCODE_OK &&
+                        info.instance_state == eprosima::fastdds::dds::ALIVE_INSTANCE_STATE)
                     {
-                        std::lock_guard<std::mutex> lk(mtx);
-                        messages.emplace_back(msg.text);
-                        if (messages.size() > max_messages) {
-                            messages.erase(messages.begin(),
-                                           messages.begin() + (messages.size() - max_messages));
+                        {
+                            std::lock_guard<std::mutex> lk(mtx);
+                            messages.emplace_back(msg.text);
+                            if (messages.size() > max_messages)
+                            {
+                                messages.erase(messages.begin(),
+                                               messages.begin() + (messages.size() - max_messages));
+                            }
                         }
+                        screen.PostEvent(ftxui::Event::Custom);
                     }
-                    screen.PostEvent(ftxui::Event::Custom);
-                } else {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                    else
+                    {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                    }
                 }
-            }
-        });
+            });
     }
 
     // UI component
-    auto component = ftxui::Renderer([&] {
-        std::vector<ftxui::Element> lines;
+    auto component = ftxui::Renderer(
+        [&]
         {
-            std::lock_guard<std::mutex> lk(mtx);
-            lines.reserve(messages.size());
-            for (const auto& s : messages) {
-                lines.push_back(ftxui::text(s) | ftxui::color(ftxui::Color::Yellow));
+            std::vector<ftxui::Element> lines;
+            {
+                std::lock_guard<std::mutex> lk(mtx);
+                lines.reserve(messages.size());
+                for (const auto& s : messages)
+                {
+                    lines.push_back(ftxui::text(s) | ftxui::color(ftxui::Color::Yellow));
+                }
             }
-        }
-        if (lines.empty()) {
-            lines.push_back(ftxui::text("Waiting for DDS messages on 'sim_text'...") | ftxui::dim);
-        }
-        auto content = ftxui::vbox({
-            ftxui::text("EtherCAT Simulator") | ftxui::bold | ftxui::color(ftxui::Color::Green),
-            ftxui::separator(),
-            ftxui::text("Press ESC/Ctrl+C/Ctrl+Z to exit") | ftxui::dim,
-            ftxui::separator(),
-            ftxui::vbox(std::move(lines)) | ftxui::yframe,
+            if (lines.empty())
+            {
+                lines.push_back(ftxui::text("Waiting for DDS messages on 'sim_text'...") |
+                                ftxui::dim);
+            }
+            auto content = ftxui::vbox({
+                ftxui::text("EtherCAT Simulator") | ftxui::bold | ftxui::color(ftxui::Color::Green),
+                ftxui::separator(),
+                ftxui::text("Press ESC/Ctrl+C/Ctrl+Z to exit") | ftxui::dim,
+                ftxui::separator(),
+                ftxui::vbox(std::move(lines)) | ftxui::yframe,
+            });
+            return content | ftxui::border;
         });
-        return content | ftxui::border;
-    });
 
-    component = ftxui::CatchEvent(component, [&](ftxui::Event ev) {
-        if (ev == ftxui::Event::Escape) {
-            g_running.store(false, std::memory_order_relaxed);
-            screen.Exit();
-            return true;
-        }
-        return false;
-    });
+    component = ftxui::CatchEvent(component,
+                                  [&](ftxui::Event ev)
+                                  {
+                                      if (ev == ftxui::Event::Escape)
+                                      {
+                                          g_running.store(false, std::memory_order_relaxed);
+                                          screen.Exit();
+                                          return true;
+                                      }
+                                      return false;
+                                  });
 
     // Background thread to exit the UI loop when a signal is caught.
-    std::thread exit_watcher([&]() {
-        while (g_running.load(std::memory_order_relaxed)) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        }
-        // Wake the UI and exit.
-        screen.PostEvent(ftxui::Event::Custom);
-        screen.Exit();
-    });
+    std::thread exit_watcher(
+        [&]()
+        {
+            while (g_running.load(std::memory_order_relaxed))
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            }
+            // Wake the UI and exit.
+            screen.PostEvent(ftxui::Event::Custom);
+            screen.Exit();
+        });
 
     // Run UI loop until exit is requested
     screen.Loop(component);
@@ -171,10 +196,12 @@ int main() {
     if (dds_thread.joinable())
         dds_thread.join();
 
-    if (subscriber && reader) {
+    if (subscriber && reader)
+    {
         subscriber->delete_datareader(reader);
     }
-    if (participant) {
+    if (participant)
+    {
         if (subscriber)
             participant->delete_subscriber(subscriber);
         if (topic)

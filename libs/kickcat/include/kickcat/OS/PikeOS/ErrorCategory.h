@@ -3,13 +3,17 @@
 
 #include "kickcat/Error.h"
 
-namespace kickcat {
-class pikeos_error_category : public std::error_category {
-    char const* name() const noexcept override {
+namespace kickcat
+{
+class pikeos_error_category : public std::error_category
+{
+    char const* name() const noexcept override
+    {
         return "PikeOS";
     }
 
-    std::string message(int condition) const override {
+    std::string message(int condition) const override
+    {
         return p4_strerror(condition);
     }
 };

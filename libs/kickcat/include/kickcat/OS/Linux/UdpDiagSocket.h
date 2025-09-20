@@ -6,16 +6,19 @@
 
 #include "kickcat/AbstractDiagSocket.h"
 
-namespace kickcat {
-class UdpDiagSocket : public AbstractDiagSocket {
+namespace kickcat
+{
+class UdpDiagSocket : public AbstractDiagSocket
+{
   public:
     UdpDiagSocket();
-    virtual ~UdpDiagSocket() {
+    virtual ~UdpDiagSocket()
+    {
         close();
     }
 
-    void                          open() override;
-    void                          close() noexcept override;
+    void open() override;
+    void close() noexcept override;
     std::tuple<int32_t, uint16_t> recv(uint8_t* frame, int32_t frame_size) override;
     int32_t sendTo(uint8_t const* frame, int32_t frame_size, uint16_t id) override;
 

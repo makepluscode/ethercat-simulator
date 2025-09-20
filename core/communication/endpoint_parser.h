@@ -4,9 +4,11 @@
 #include <string>
 #include <string_view>
 
-namespace ethercat_sim::communication {
+namespace ethercat_sim::communication
+{
 
-class EndpointParser {
+class EndpointParser
+{
   public:
     // Parse TCP endpoint format: tcp://host:port
     static bool parseTcpEndpoint(const std::string& ep, std::string& host, uint16_t& port);

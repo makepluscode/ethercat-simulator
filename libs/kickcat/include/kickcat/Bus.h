@@ -11,17 +11,20 @@
 #include "Link.h"
 #include "Slave.h"
 
-namespace kickcat {
+namespace kickcat
+{
 class AbstractSocket;
 
-class Bus {
+class Bus
+{
   public:
     Bus(std::shared_ptr<Link> link);
     ~Bus() = default;
 
     // Enable user to adapt defaults values if they dont fit the current application (i.e. unit
     // tests)
-    void configureWaitLatency(nanoseconds tiny, nanoseconds big) {
+    void configureWaitLatency(nanoseconds tiny, nanoseconds big)
+    {
         tiny_wait = tiny;
         big_wait  = big;
     }
@@ -57,7 +60,8 @@ class Bus {
     // if OK, set the bus to SAFE_OP state
     void createMapping(uint8_t* iomap);
 
-    std::vector<Slave>& slaves() {
+    std::vector<Slave>& slaves()
+    {
         return slaves_;
     }
 
@@ -93,7 +97,12 @@ class Bus {
     void checkMailboxes(std::function<void(DatagramState const&)> const& error);
     void processMessages(std::function<void(DatagramState const&)> const& error);
 
-    enum Access { PARTIAL = 0, COMPLETE = 1, EMULATE_COMPLETE = 2 };
+    enum Access
+    {
+        PARTIAL          = 0,
+        COMPLETE         = 1,
+        EMULATE_COMPLETE = 2
+    };
 
     // Note: timeout is used on a per message basis: if complete access is emulated,
     // global call timeout will be at most N * timeout (with N the number of subindex to reached)
@@ -109,8 +118,8 @@ class Bus {
     /// the gateway mechanism. \return nullptr if message cannot be added (malformed, bad address,
     /// unsupported protocol, etc.), a handle on the message otherwise
     std::shared_ptr<GatewayMessage> addGatewayMessage(uint8_t const* raw_message,
-                                                      int32_t        raw_message__size,
-                                                      uint16_t       gateway_index);
+                                                      int32_t raw_message__size,
+                                                      uint16_t gateway_index);
 
     void clearErrorCounters();
 
@@ -147,22 +156,24 @@ class Bus {
     void waitForMessage(std::shared_ptr<AbstractMessage> message);
 
     std::shared_ptr<Link> link_;
-    std::vector<Slave>    slaves_;
+    std::vector<Slave> slaves_;
 
     uint8_t* iomap_read_section_{};  // pointer on read section (to write back inputs)
     uint8_t* iomap_write_section_{}; // pointer on write section (to send to the slaves)
 
-    struct blockIO {
+    struct blockIO
+    {
         uint8_t* iomap;  // client buffer
         uint32_t offset; // frame offset
-        int32_t  size;   // block size
-        Slave*   slave;  // associated slave of this input
+        int32_t size;    // block size
+        Slave* slave;    // associated slave of this input
     };
 
-    struct PIFrame {
-        uint32_t             address; // logical address
-        int32_t              size;    // frame size
-        std::vector<blockIO> inputs;  // slave to master
+    struct PIFrame
+    {
+        uint32_t address;            // logical address
+        int32_t size;                // frame size
+        std::vector<blockIO> inputs; // slave to master
         std::vector<blockIO> outputs;
     };
     std::vector<PIFrame> pi_frames_; // PI frame description

@@ -13,7 +13,8 @@
 using ethercat_sim::communication::TextMsg;
 using ethercat_sim::communication::TextMsgPubSubType;
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
     const char* text = (argc > 1) ? argv[1] : "Hello from fastdds_sim_pub";
 
     eprosima::fastdds::dds::TypeSupport type(new TextMsgPubSubType());
@@ -25,14 +26,16 @@ int main(int argc, char** argv) {
     qos.transport().user_transports.push_back(
         std::make_shared<eprosima::fastdds::rtps::SharedMemTransportDescriptor>());
     auto* participant = factory->create_participant(0, qos);
-    if (!participant) {
+    if (!participant)
+    {
         std::cerr << "SHM transport unavailable; falling back to builtin UDP" << std::endl;
         eprosima::fastdds::dds::DomainParticipantQos qos_fallback =
             eprosima::fastdds::dds::PARTICIPANT_QOS_DEFAULT;
         qos_fallback.transport().use_builtin_transports = true; // UDPv4 defaults
         participant = factory->create_participant(0, qos_fallback);
     }
-    if (!participant) {
+    if (!participant)
+    {
         std::cerr << "participant create failed" << std::endl;
         return 1;
     }
@@ -46,7 +49,8 @@ int main(int argc, char** argv) {
         pub->create_datawriter(topic, eprosima::fastdds::dds::DATAWRITER_QOS_DEFAULT, nullptr);
 
     // Publish a few messages to increase chance of reception
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 5; ++i)
+    {
         TextMsg msg;
         msg.text = text;
         writer->write(&msg);

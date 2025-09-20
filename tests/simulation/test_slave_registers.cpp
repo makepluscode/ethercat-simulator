@@ -10,7 +10,8 @@
 using ethercat_sim::simulation::NetworkSimulator;
 using ethercat_sim::simulation::VirtualSlave;
 
-TEST(VirtualSlave, AL_DL_Defaults_And_AL_CONTROL_ChangesState) {
+TEST(VirtualSlave, AL_DL_Defaults_And_AL_CONTROL_ChangesState)
+{
     NetworkSimulator sim;
     sim.initialize();
     sim.clearSlaves();

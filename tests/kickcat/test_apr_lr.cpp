@@ -12,7 +12,8 @@
 using ethercat_sim::simulation::NetworkSimulator;
 using ethercat_sim::simulation::VirtualSlave;
 
-TEST(KickcatAdapter, APRW_AssignsAddresses_WkcIsOne) {
+TEST(KickcatAdapter, APRW_AssignsAddresses_WkcIsOne)
+{
     auto sim = std::make_shared<NetworkSimulator>();
     sim->initialize();
     sim->clearSlaves();
@@ -25,8 +26,8 @@ TEST(KickcatAdapter, APRW_AssignsAddresses_WkcIsOne) {
 
     // Build a frame with two APWR datagrams to set station addresses
     ::kickcat::Frame frame;
-    uint16_t         addr1 = 1001;
-    uint16_t         addr2 = 1002;
+    uint16_t addr1 = 1001;
+    uint16_t addr2 = 1002;
     frame.addDatagram(
         0, ::kickcat::Command::APWR,
         ::kickcat::createAddress(static_cast<uint16_t>(0 - 0), ::kickcat::reg::STATION_ADDR),
@@ -53,7 +54,8 @@ TEST(KickcatAdapter, APRW_AssignsAddresses_WkcIsOne) {
     EXPECT_EQ(station, 1002);
 }
 
-TEST(KickcatAdapter, LRW_LogicalMemory_ReadWrite) {
+TEST(KickcatAdapter, LRW_LogicalMemory_ReadWrite)
+{
     auto sim = std::make_shared<NetworkSimulator>();
     sim->initialize();
     sim->setVirtualSlaveCount(1);
@@ -63,13 +65,11 @@ TEST(KickcatAdapter, LRW_LogicalMemory_ReadWrite) {
     auto link    = std::make_shared<::kickcat::Link>(nominal, redun, [] {});
 
     // Write logical memory
-    uint8_t wbuf[4]    = {1, 2, 3, 4};
-    auto    process_ok = [](::kickcat::DatagramHeader const*, uint8_t const*, uint16_t wkc) {
-        return (wkc >= 1) ? ::kickcat::DatagramState::OK : ::kickcat::DatagramState::INVALID_WKC;
-    };
-    auto error_throw = [](::kickcat::DatagramState const&) {
-        throw std::runtime_error("LR* failed");
-    };
+    uint8_t wbuf[4] = {1, 2, 3, 4};
+    auto process_ok = [](::kickcat::DatagramHeader const*, uint8_t const*, uint16_t wkc)
+    { return (wkc >= 1) ? ::kickcat::DatagramState::OK : ::kickcat::DatagramState::INVALID_WKC; };
+    auto error_throw = [](::kickcat::DatagramState const&)
+    { throw std::runtime_error("LR* failed"); };
 
     link->addDatagram(::kickcat::Command::LWR, /*logical*/ 0x10, wbuf,
                       static_cast<uint16_t>(sizeof(wbuf)), process_ok, error_throw);
@@ -79,7 +79,8 @@ TEST(KickcatAdapter, LRW_LogicalMemory_ReadWrite) {
     uint8_t rbuf[4] = {0};
     link->addDatagram(
         ::kickcat::Command::LRD, /*logical*/ 0x10, nullptr, static_cast<uint16_t>(sizeof(rbuf)),
-        [&rbuf](::kickcat::DatagramHeader const*, uint8_t const* data, uint16_t wkc) {
+        [&rbuf](::kickcat::DatagramHeader const*, uint8_t const* data, uint16_t wkc)
+        {
             if (wkc < 1)
                 return ::kickcat::DatagramState::INVALID_WKC;
             std::memcpy(rbuf, data, sizeof(rbuf));

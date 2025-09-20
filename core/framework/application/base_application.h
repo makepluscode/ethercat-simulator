@@ -11,10 +11,12 @@
 #include <unistd.h>
 #include <vector>
 
-namespace ethercat_sim::framework {
+namespace ethercat_sim::framework
+{
 
 // Base application class with common functionality
-class BaseApplication {
+class BaseApplication
+{
   public:
     BaseApplication()          = default;
     virtual ~BaseApplication() = default;
@@ -51,7 +53,8 @@ class BaseApplication {
     bool checkEscapeKey();
 
     // Check if application should stop
-    bool shouldStop() const {
+    bool shouldStop() const
+    {
         return stop_flag_.load();
     }
 
@@ -66,9 +69,11 @@ class BaseApplication {
     static std::atomic_bool stop_flag_;
 
     // Terminal state
-    struct termios old_termios_ {};
-    bool           terminal_active_{false};
-    bool           is_tty_{false};
+    struct termios old_termios_
+    {
+    };
+    bool terminal_active_{false};
+    bool is_tty_{false};
 };
 
 } // namespace ethercat_sim::framework

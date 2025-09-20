@@ -2,7 +2,8 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 
-int main(int argc, char* argv[]) {
+int main(int argc, char* argv[])
+{
     QGuiApplication app(argc, argv);
 
     QCommandLineParser parser;
@@ -13,17 +14,19 @@ int main(int argc, char* argv[]) {
     parser.process(app);
 
     QQmlApplicationEngine engine;
-    const QUrl            url(u"qrc:/qml/Main.qml"_qs);
+    const QUrl url(u"qrc:/qml/Main.qml"_qs);
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreated, &app,
-        [url](QObject* obj, const QUrl& objUrl) {
+        [url](QObject* obj, const QUrl& objUrl)
+        {
             if (!obj && url == objUrl)
                 QCoreApplication::exit(-1);
         },
         Qt::QueuedConnection);
     engine.load(url);
 
-    if (parser.isSet(smokeOpt)) {
+    if (parser.isSet(smokeOpt))
+    {
         // Smoke mode: we exit right away if QML loaded.
         return 0;
     }

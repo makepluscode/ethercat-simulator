@@ -5,21 +5,26 @@
 #include <memory>
 #include <thread>
 
-namespace ethercat_sim::framework {
+namespace ethercat_sim::framework
+{
 
 // Base controller class with common lifecycle management
-template <typename ModelType> class BaseController {
+template <typename ModelType> class BaseController
+{
   public:
     using Model = ModelType;
 
     BaseController() = default;
-    virtual ~BaseController() {
+    virtual ~BaseController()
+    {
         stop();
     }
 
     // Start the controller
-    void start() {
-        if (worker_thread_.joinable()) {
+    void start()
+    {
+        if (worker_thread_.joinable())
+        {
             return; // Already running
         }
 
@@ -28,20 +33,24 @@ template <typename ModelType> class BaseController {
     }
 
     // Stop the controller
-    void stop() {
+    void stop()
+    {
         stop_flag_.store(true);
-        if (worker_thread_.joinable()) {
+        if (worker_thread_.joinable())
+        {
             worker_thread_.join();
         }
     }
 
     // Check if controller is running
-    bool isRunning() const {
+    bool isRunning() const
+    {
         return worker_thread_.joinable() && !stop_flag_.load();
     }
 
     // Get model reference
-    std::shared_ptr<Model> model() const {
+    std::shared_ptr<Model> model() const
+    {
         return model_;
     }
 
@@ -50,16 +59,20 @@ template <typename ModelType> class BaseController {
     virtual void run() = 0;
 
     // Check if stop was requested
-    bool shouldStop() const {
+    bool shouldStop() const
+    {
         return stop_flag_.load();
     }
 
     // Sleep for specified duration, respecting stop flag
-    void sleepFor(std::chrono::milliseconds duration) {
+    void sleepFor(std::chrono::milliseconds duration)
+    {
         auto start = std::chrono::steady_clock::now();
-        while (!stop_flag_.load()) {
+        while (!stop_flag_.load())
+        {
             auto elapsed = std::chrono::steady_clock::now() - start;
-            if (elapsed >= duration) {
+            if (elapsed >= duration)
+            {
                 break;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -71,7 +84,7 @@ template <typename ModelType> class BaseController {
 
   private:
     std::atomic_bool stop_flag_{false};
-    std::thread      worker_thread_;
+    std::thread worker_thread_;
 };
 
 } // namespace ethercat_sim::framework

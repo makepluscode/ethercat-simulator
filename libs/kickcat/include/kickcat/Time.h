@@ -4,7 +4,8 @@
 #include <chrono>
 #include <system_error>
 
-namespace kickcat {
+namespace kickcat
+{
 using namespace std::chrono;
 using seconds_f = std::chrono::duration<float>;
 

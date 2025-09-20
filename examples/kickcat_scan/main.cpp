@@ -8,7 +8,8 @@
 #include "ethercat_sim/kickcat/sim_socket.h"
 #include "ethercat_sim/simulation/network_simulator.h"
 
-int main() {
+int main()
+{
     using ethercat_sim::simulation::NetworkSimulator;
 
     auto sim = std::make_shared<NetworkSimulator>();
@@ -27,9 +28,12 @@ int main() {
 
     // Try a simple detect; our simulator is a loopback stub, so expect 0
     int32_t count = 0;
-    try {
+    try
+    {
         count = bus.detectSlaves();
-    } catch (...) {
+    }
+    catch (...)
+    {
         // Incomplete simulation may throw; treat as 0 detected
         count = 0;
     }

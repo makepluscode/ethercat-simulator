@@ -3,7 +3,8 @@
 #include "ethercat_sim/communication/ethercat_frame.h"
 #include "ethercat_sim/simulation/network_simulator.h"
 
-int main() {
+int main()
+{
     std::cout << "Hello EtherCAT Simulator" << std::endl;
     ethercat_sim::simulation::NetworkSimulator sim;
     sim.initialize();
@@ -16,9 +17,10 @@ int main() {
     bool sent = sim.sendFrame(tx);
 
     ethercat_sim::communication::EtherCATFrame rx;
-    bool                                       got = sim.receiveFrame(rx);
+    bool got = sim.receiveFrame(rx);
 
-    if (!sent || !got || rx.payload != tx.payload) {
+    if (!sent || !got || rx.payload != tx.payload)
+    {
         std::cerr << "Frame loopback failed" << std::endl;
         return 1;
     }
