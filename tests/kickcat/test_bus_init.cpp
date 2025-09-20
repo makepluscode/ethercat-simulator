@@ -22,8 +22,10 @@ TEST(KickcatBus, Init_MinimalFlow)
 
     ::kickcat::Bus bus(link);
 
-    // Skip the problematic init() call for now and just test basic functionality
-    // The init() method seems to hang even with reasonable timeouts
-    // This suggests an issue with the kickcat library or our simulation setup
-    EXPECT_TRUE(true); // Placeholder test
+    EXPECT_NO_THROW(bus.init());
+    for (auto const& slave : bus.slaves())
+    {
+        EXPECT_EQ(slave.al_status & 0x0Fu, static_cast<uint8_t>(::kickcat::State::PRE_OP));
+        EXPECT_EQ(slave.al_status_code, 0);
+    }
 }

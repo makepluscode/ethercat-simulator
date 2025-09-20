@@ -155,9 +155,12 @@ class VirtualSlave
             uint16_t cmd = static_cast<uint16_t>(src[0] | (static_cast<uint16_t>(src[1]) << 8));
             uint16_t addressLow =
                 static_cast<uint16_t>(src[2] | (static_cast<uint16_t>(src[3]) << 8));
-            eeprom_addr_ = addressLow; // words
+            uint16_t addressHigh =
+                static_cast<uint16_t>(src[4] | (static_cast<uint16_t>(src[5]) << 8));
+            eeprom_addr_ =
+                static_cast<uint32_t>(addressLow) | (static_cast<uint32_t>(addressHigh) << 16);
             std::cout << "[slave " << address_ << "] EEPROM control write cmd=0x" << std::hex << cmd
-                      << " addr=0x" << addressLow << std::dec << "\n";
+                      << " addr=0x" << eeprom_addr_ << std::dec << "\n";
             return true;
         }
 
@@ -248,6 +251,26 @@ class VirtualSlave
         return input_pdo_mapped_;
     }
 
+    // Add start() and routine() methods like the working KickCAT example
+    void start() noexcept
+    {
+        LOG_DEBUG("VirtualSlave[" + std::to_string(address_) + "] starting");
+        started_ = true;
+    }
+
+    void routine() noexcept
+    {
+        if (!started_)
+        {
+            return;
+        }
+
+        // Process any pending state transitions
+        // This is where the slave would normally process state changes
+        // For our simulation, we just ensure the state is properly reflected
+        syncCoreRegisters_();
+    }
+
   protected:
     // Allow derived classes (specific slaves) to answer SDO Upload values
     virtual bool onSdoUpload(uint16_t /*index*/, uint8_t /*subindex*/,
@@ -327,7 +350,8 @@ class VirtualSlave
         eeprom_[0x30] = 0x0001; // Version 1
 
         // End marker
-        eeprom_[0x60] = 0xFFFF; // End category
+        eeprom_[0x60] = 0xFFFF; // End category marker (lower word)
+        eeprom_[0x61] = 0xFFFF; // Duplicate in upper word to ensure detection
     }
 
     void syncCoreRegisters_() noexcept
@@ -746,6 +770,7 @@ class VirtualSlave
     std::vector<std::uint8_t> regs_ = std::vector<std::uint8_t>(4096, 0);
     bool input_pdo_mapped_{false};
     bool ack_requested_{false};
+    bool started_{false};
 
     // Mailbox (standard) minimal simulation
     uint16_t mb_recv_offset_{0};
@@ -757,7 +782,7 @@ class VirtualSlave
     std::vector<std::uint8_t> mb_in_;
 
     // EEPROM / SII minimal stub
-    mutable uint16_t eeprom_addr_{0}; // word address for next read
+    mutable uint32_t eeprom_addr_{0}; // word address for next read
     std::vector<uint16_t> eeprom_ = std::vector<uint16_t>(128, 0);
 };
 

@@ -43,6 +43,7 @@ class NetworkSimulator
     // Virtual slave registry (initial skeleton)
     void addVirtualSlave(std::shared_ptr<VirtualSlave> slave) noexcept;
     void clearSlaves() noexcept;
+    void startAllSlaves() noexcept;
 
     // Non-blocking send/receive stubs
     bool sendFrame(const communication::EtherCATFrame& frame) noexcept;

@@ -166,6 +166,7 @@ bool SubsEndpoint::handleClient_(int fd)
         auto s = std::make_shared<ethercat_sim::subs::El1258Slave>(static_cast<uint16_t>(1 + i));
         sim_->addVirtualSlave(std::move(s));
     }
+    sim_->startAllSlaves(); // Start all slaves like the working KickCAT example
     sim_->setLinkUp(true);
 
     // blocking loop: read len(uint16), read frame, process, write back
@@ -194,6 +195,7 @@ bool SubsEndpoint::handleClient_(int fd)
                 return false;
         }
         processFrame_(buf.data(), static_cast<int32_t>(len));
+        sim_->runOnce(); // Execute slave routines like the working KickCAT example
         uint16_t out_len = htons(static_cast<uint16_t>(buf.size()));
         if (!write_exact_nb(fd, &out_len, sizeof(out_len), stop_))
             return stop_ && stop_->load();

@@ -18,9 +18,16 @@ std::string unique_socket_path()
 {
     auto pid = static_cast<long>(::getpid());
     auto now = std::chrono::steady_clock::now().time_since_epoch().count();
+    static const std::filesystem::path repo_root =
+        std::filesystem::absolute(std::filesystem::path(__FILE__))
+            .parent_path()
+            .parent_path()
+            .parent_path();
+    std::filesystem::path base = repo_root / "run";
+    std::error_code ec;
+    std::filesystem::create_directories(base, ec);
     std::filesystem::path p =
-        std::filesystem::temp_directory_path() /
-        ("ethercat_test_" + std::to_string(pid) + "_" + std::to_string(now) + ".sock");
+        base / ("ethercat_test_" + std::to_string(pid) + "_" + std::to_string(now) + ".sock");
     return p.string();
 }
 

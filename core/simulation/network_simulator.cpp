@@ -20,6 +20,16 @@ int NetworkSimulator::runOnce() noexcept
     // Periodic processing: update logical memory from mapped inputs
     {
         std::lock_guard<std::mutex> lock(mutex_);
+
+        // Call routine() on all slaves (like the working KickCAT example)
+        for (auto& slave : slaves_)
+        {
+            if (slave && slave->online())
+            {
+                slave->routine();
+            }
+        }
+
         for (auto it = input_maps_.begin(); it != input_maps_.end();)
         {
             if (auto s = it->slave.lock())
@@ -80,6 +90,18 @@ void NetworkSimulator::addVirtualSlave(std::shared_ptr<VirtualSlave> slave) noex
     std::lock_guard<std::mutex> lock(mutex_);
     slaves_.push_back(std::move(slave));
     virtualSlaveCount_ = slaves_.size();
+}
+
+void NetworkSimulator::startAllSlaves() noexcept
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (auto& slave : slaves_)
+    {
+        if (slave)
+        {
+            slave->start();
+        }
+    }
 }
 
 void NetworkSimulator::clearSlaves() noexcept
@@ -185,7 +207,8 @@ bool NetworkSimulator::writeToSlave(std::uint16_t station_address, std::uint16_t
             {
                 ctrl = data[0];
             }
-            ethercat_sim::framework::logger::Logger::debug("direct write station=%d AL_CONTROL=0x%x len=%d", station_address, ctrl, len);
+            ethercat_sim::framework::logger::Logger::debug(
+                "direct write station=%d AL_CONTROL=0x%x len=%d", station_address, ctrl, len);
         }
         return s->write(reg, data, len);
     }
@@ -234,7 +257,8 @@ bool NetworkSimulator::writeToSlaveByIndex(std::size_t index, std::uint16_t reg,
                 {
                     ctrl = data[0];
                 }
-                ethercat_sim::framework::logger::Logger::debug("idx=%d AL_CONTROL=0x%x len=%d", index, ctrl, len);
+                ethercat_sim::framework::logger::Logger::debug("idx=%d AL_CONTROL=0x%x len=%d",
+                                                               index, ctrl, len);
             }
             return s->write(reg, data, len);
         }
