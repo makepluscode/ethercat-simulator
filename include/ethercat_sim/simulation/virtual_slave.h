@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "kickcat/protocol.h"
+
 #include "framework/logger/logger.h"
 
 namespace ethercat_sim::simulation
@@ -21,11 +22,10 @@ class VirtualSlave
         : address_(address), vendor_id_(vendor_id), product_code_(product_code),
           name_(std::move(name))
     {
-        LOG_DEBUG("VirtualSlave constructor: addr=" + std::to_string(address_) + 
-                  ", vendor=0x" + std::to_string(vendor_id_) + 
-                  ", product=0x" + std::to_string(product_code_) + 
+        LOG_DEBUG("VirtualSlave constructor: addr=" + std::to_string(address_) + ", vendor=0x" +
+                  std::to_string(vendor_id_) + ", product=0x" + std::to_string(product_code_) +
                   ", name='" + name_ + "'");
-        
+
         // initialize a minimal ESC register map
         // Set STATION_ADDR (0x0010) with the configured address (LE)
         regs_.at(0x0010) = static_cast<uint8_t>(address_ & 0xFF);
@@ -34,7 +34,7 @@ class VirtualSlave
         // Initialize AL status/state to INIT
         al_state_ = ::kickcat::State::INIT;
         LOG_DEBUG("VirtualSlave[" + std::to_string(address_) + "] initialized AL state to INIT");
-        
+
         // Initialize default mailbox offsets/sizes (standard mailbox)
         mb_recv_offset_ = 0x1000;
         mb_recv_size_   = 512;
@@ -48,7 +48,7 @@ class VirtualSlave
 
         // Initialize EEPROM with proper data
         initializeEeprom_();
-        
+
         LOG_DEBUG("VirtualSlave[" + std::to_string(address_) + "] initialization complete");
     }
 
@@ -86,12 +86,13 @@ class VirtualSlave
     void setALState(::kickcat::State s) noexcept
     {
         auto old_state = al_state_;
-        al_state_ = s;
-        LOG_DEBUG("VirtualSlave[" + std::to_string(address_) + "] AL state transition: " + 
-                  std::to_string(static_cast<int>(old_state)) + " -> " + std::to_string(static_cast<int>(s)));
+        al_state_      = s;
+        LOG_DEBUG("VirtualSlave[" + std::to_string(address_) +
+                  "] AL state transition: " + std::to_string(static_cast<int>(old_state)) + " -> " +
+                  std::to_string(static_cast<int>(s)));
         syncCoreRegisters_();
     }
-    
+
     bool isInputPDOMapped() const noexcept
     {
         return input_pdo_mapped_;
@@ -408,58 +409,54 @@ class VirtualSlave
         }
     }
 
-    bool handleAlControlWrite_(uint16_t ctrl) noexcept
+    ::kickcat::State decodeControlState_(uint16_t ctrl) const noexcept
     {
-        constexpr uint16_t STATE_MASK = 0x000F;
-        ::kickcat::State requested    = static_cast<::kickcat::State>(ctrl & STATE_MASK);
-        bool ack_bit                  = (ctrl & static_cast<uint16_t>(::kickcat::State::ACK)) != 0;
-
-        LOG_DEBUG("VirtualSlave[" + std::to_string(address_) + "] AL_CONTROL write: 0x" + 
-                  std::to_string(ctrl) + " current state: " + std::to_string(static_cast<int>(al_state_)));
-
-        if (ack_bit)
+        uint16_t bits = ctrl & 0x000Fu;
+        switch (bits)
         {
-            ack_requested_  = false;
-            al_status_code_ = 0;
+        case 0u:
+            return ::kickcat::State::INVALID;
+        case static_cast<uint16_t>(::kickcat::State::INIT):
+            return ::kickcat::State::INIT;
+        case static_cast<uint16_t>(::kickcat::State::PRE_OP):
+            return ::kickcat::State::PRE_OP;
+        case static_cast<uint16_t>(::kickcat::State::BOOT):
+            return ::kickcat::State::BOOT;
+        case static_cast<uint16_t>(::kickcat::State::SAFE_OP):
+            return ::kickcat::State::SAFE_OP;
+        case static_cast<uint16_t>(::kickcat::State::OPERATIONAL):
+            return ::kickcat::State::OPERATIONAL;
+        default:
+            if ((bits & static_cast<uint16_t>(::kickcat::State::OPERATIONAL)) != 0)
+                return ::kickcat::State::OPERATIONAL;
+            if ((bits & static_cast<uint16_t>(::kickcat::State::SAFE_OP)) != 0)
+                return ::kickcat::State::SAFE_OP;
+            if ((bits & static_cast<uint16_t>(::kickcat::State::PRE_OP)) != 0)
+                return ::kickcat::State::PRE_OP;
+            if ((bits & static_cast<uint16_t>(::kickcat::State::INIT)) != 0)
+                return ::kickcat::State::INIT;
+            return ::kickcat::State::INVALID;
         }
+    }
 
-        if (requested == ::kickcat::State::INVALID)
+    ::kickcat::State nextStateUp_(::kickcat::State current) const noexcept
+    {
+        switch (current)
         {
-            syncCoreRegisters_();
-            return true; // ACK only
+        case ::kickcat::State::INIT:
+            return ::kickcat::State::PRE_OP;
+        case ::kickcat::State::PRE_OP:
+            return ::kickcat::State::SAFE_OP;
+        case ::kickcat::State::SAFE_OP:
+            return ::kickcat::State::OPERATIONAL;
+        default:
+            return current;
         }
+    }
 
-        if (!stateChangeNeeded_(requested))
-        {
-            syncCoreRegisters_();
-            return true;
-        }
-
-        int current_rank   = stateRank_(al_state_);
-        int requested_rank = stateRank_(requested);
-        bool ack_only =
-            ack_bit && !ack_requested_ && requested_rank > 0 && requested_rank < current_rank;
-        if (ack_only)
-        {
-            al_status_code_ = 0;
-            syncCoreRegisters_();
-            LOG_DEBUG("VirtualSlave[" + std::to_string(address_) + "] Ack-only write ignored state change");
-            return true;
-        }
-
-        if (!isTransitionAllowed_(al_state_, requested))
-        {
-            signalError_(0x0011); // Invalid state change request
-            return true;
-        }
-
-        if (!preconditionsMet_(requested))
-        {
-            signalError_(0x0011);
-            return true;
-        }
-
-        switch (requested)
+    void applyStateTransition_(::kickcat::State target) noexcept
+    {
+        switch (target)
         {
         case ::kickcat::State::INIT:
             enterInit_();
@@ -473,18 +470,93 @@ class VirtualSlave
         case ::kickcat::State::OPERATIONAL:
             enterOperational_();
             break;
-        case ::kickcat::State::BOOT:
+        default:
+            break;
+        }
+    }
+
+    bool handleAlControlWrite_(uint16_t ctrl) noexcept
+    {
+        ::kickcat::State requested = decodeControlState_(ctrl);
+        bool ack_bit               = (ctrl & static_cast<uint16_t>(::kickcat::State::ACK)) != 0;
+        bool ack_was_requested     = ack_requested_;
+
+        LOG_DEBUG("VirtualSlave[" + std::to_string(address_) + "] AL_CONTROL write: 0x" +
+                  std::to_string(ctrl) +
+                  " current state: " + std::to_string(static_cast<int>(al_state_)));
+
+        if (ack_bit)
+        {
+            ack_requested_  = false;
+            al_status_code_ = 0;
+
+            // When ACK bit is set but no acknowledgement was expected, treat the write as a
+            // simple acknowledgement without attempting a state transition. Some masters send
+            // ACK+INIT after requesting PRE_OP, and we should not fall back to INIT in that case.
+            if (!ack_was_requested)
+            {
+                syncCoreRegisters_();
+                return true;
+            }
+        }
+
+        if (requested == ::kickcat::State::INVALID)
+        {
+            syncCoreRegisters_();
+            return true; // ACK only or unsupported request pattern
+        }
+
+        if (requested == ::kickcat::State::BOOT)
+        {
             signalError_(0x0043); // Boot state not supported
             return true;
-        default:
-            signalError_(0x0001);
+        }
+
+        if (!stateChangeNeeded_(requested))
+        {
+            syncCoreRegisters_();
+            return true;
+        }
+
+        bool success = true;
+        while (stateChangeNeeded_(requested))
+        {
+            ::kickcat::State next = requested;
+            int current_rank      = stateRank_(al_state_);
+            int requested_rank    = stateRank_(requested);
+
+            if (requested_rank > current_rank)
+            {
+                next = nextStateUp_(al_state_);
+            }
+
+            if (!isTransitionAllowed_(al_state_, next))
+            {
+                signalError_(0x0011); // Invalid state change request
+                success = false;
+                break;
+            }
+
+            if (!preconditionsMet_(next))
+            {
+                signalError_(0x0011);
+                success = false;
+                break;
+            }
+
+            applyStateTransition_(next);
+        }
+
+        if (!success)
+        {
             return true;
         }
 
         al_status_code_ = 0;
         ack_requested_  = false;
         syncCoreRegisters_();
-        LOG_DEBUG("VirtualSlave[" + std::to_string(address_) + "] New AL state: " + std::to_string(static_cast<int>(al_state_)));
+        LOG_DEBUG("VirtualSlave[" + std::to_string(address_) +
+                  "] New AL state: " + std::to_string(static_cast<int>(al_state_)));
         return true;
     }
 
@@ -519,7 +591,8 @@ class VirtualSlave
     {
         if (target == ::kickcat::State::BOOT)
         {
-            LOG_DEBUG("VirtualSlave[" + std::to_string(address_) + "] preconditionsMet_(BOOT): false (not supported)");
+            LOG_DEBUG("VirtualSlave[" + std::to_string(address_) +
+                      "] preconditionsMet_(BOOT): false (not supported)");
             return false;
         }
 
@@ -527,13 +600,14 @@ class VirtualSlave
         if (target == ::kickcat::State::SAFE_OP || target == ::kickcat::State::OPERATIONAL)
         {
             bool result = input_pdo_mapped_;
-            LOG_DEBUG("VirtualSlave[" + std::to_string(address_) + "] preconditionsMet_(" + 
-                      std::to_string(static_cast<int>(target)) + "): " + (result ? "true" : "false") + 
+            LOG_DEBUG("VirtualSlave[" + std::to_string(address_) + "] preconditionsMet_(" +
+                      std::to_string(static_cast<int>(target)) +
+                      "): " + (result ? "true" : "false") +
                       " (input_pdo_mapped_=" + (input_pdo_mapped_ ? "true" : "false") + ")");
             return result;
         }
 
-        LOG_DEBUG("VirtualSlave[" + std::to_string(address_) + "] preconditionsMet_(" + 
+        LOG_DEBUG("VirtualSlave[" + std::to_string(address_) + "] preconditionsMet_(" +
                   std::to_string(static_cast<int>(target)) + "): true (no special requirements)");
         return true;
     }

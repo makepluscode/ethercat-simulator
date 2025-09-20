@@ -163,8 +163,7 @@ bool SubsEndpoint::handleClient_(int fd)
     // Create N EL1258-like virtual slaves with station addresses starting at 1
     for (std::size_t i = 0; i < subs_count_; ++i)
     {
-        auto s = std::make_shared<ethercat_sim::subs::El1258Slave>(static_cast<uint16_t>(1 + i),
-                                                                   0x00000000, 0x00001258);
+        auto s = std::make_shared<ethercat_sim::subs::El1258Slave>(static_cast<uint16_t>(1 + i));
         sim_->addVirtualSlave(std::move(s));
     }
     sim_->setLinkUp(true);

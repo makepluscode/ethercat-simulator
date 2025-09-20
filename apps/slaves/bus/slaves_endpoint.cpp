@@ -14,12 +14,11 @@
 #include <thread>
 #include <unistd.h>
 
-#include "framework/logger/logger.h"
-
 #include "kickcat/Frame.h"
 #include "kickcat/protocol.h"
 
 #include "ethercat_sim/communication/endpoint_parser.h"
+#include "framework/logger/logger.h"
 #include "sim/el1258_subs.h"
 
 namespace ethercat_sim::bus
@@ -30,7 +29,8 @@ bool SlavesEndpoint::bindUDS_(const std::string& path)
     listen_fd_ = ::socket(AF_UNIX, SOCK_STREAM, 0);
     if (listen_fd_ < 0)
     {
-        ethercat_sim::framework::logger::Logger::error("Failed to create socket: %s", strerror(errno));
+        ethercat_sim::framework::logger::Logger::error("Failed to create socket: %s",
+                                                       strerror(errno));
         return false;
     }
 
@@ -56,13 +56,15 @@ bool SlavesEndpoint::bindUDS_(const std::string& path)
     }
     if (::bind(listen_fd_, reinterpret_cast<sockaddr*>(&addr), len) < 0)
     {
-        ethercat_sim::framework::logger::Logger::error("Failed to bind socket: %s", strerror(errno));
+        ethercat_sim::framework::logger::Logger::error("Failed to bind socket: %s",
+                                                       strerror(errno));
         ::close(listen_fd_);
         return false;
     }
     if (::listen(listen_fd_, 1) < 0)
     {
-        ethercat_sim::framework::logger::Logger::error("Failed to listen on socket: %s", strerror(errno));
+        ethercat_sim::framework::logger::Logger::error("Failed to listen on socket: %s",
+                                                       strerror(errno));
         ::close(listen_fd_);
         return false;
     }
@@ -165,8 +167,7 @@ bool SlavesEndpoint::handleClient_(int fd)
     // Create N EL1258-like virtual slaves with station addresses starting at 1
     for (std::size_t i = 0; i < slaves_count_; ++i)
     {
-        auto s = std::make_shared<ethercat_sim::subs::El1258Slave>(static_cast<uint16_t>(1 + i),
-                                                                   0x00000000, 0x00001258);
+        auto s = std::make_shared<ethercat_sim::subs::El1258Slave>(static_cast<uint16_t>(1 + i));
         sim_->addVirtualSlave(std::move(s));
     }
     sim_->setLinkUp(true);
@@ -244,7 +245,8 @@ void SlavesEndpoint::processFrame_(uint8_t* frame, int32_t frame_size)
             ack    = (n == 0) ? 1 : n; // ensure >0 to help initial detection
             if (dbg)
             {
-                ethercat_sim::framework::logger::Logger::debug("BRD len=%d wkc->%d online=%d", hdr->len, ack, sim_->onlineSlaveCount());
+                ethercat_sim::framework::logger::Logger::debug(
+                    "BRD len=%d wkc->%d online=%d", hdr->len, ack, sim_->onlineSlaveCount());
             }
             break;
         }
@@ -382,37 +384,46 @@ void SlavesEndpoint::processFrame_(uint8_t* frame, int32_t frame_size)
 
 bool SlavesEndpoint::run()
 {
-    ethercat_sim::framework::logger::Logger::info("SlavesEndpoint::run() started with endpoint: %s", endpoint_.c_str());
+    ethercat_sim::framework::logger::Logger::info("SlavesEndpoint::run() started with endpoint: %s",
+                                                  endpoint_.c_str());
     std::string path, host;
     uint16_t port = 0;
     if (communication::EndpointParser::parseUdsEndpoint(endpoint_, path))
     {
-        ethercat_sim::framework::logger::Logger::info("Parsed UDS endpoint, path: %s", path.c_str());
+        ethercat_sim::framework::logger::Logger::info("Parsed UDS endpoint, path: %s",
+                                                      path.c_str());
         if (!bindUDS_(path))
         {
-            ethercat_sim::framework::logger::Logger::error("Failed to bind UDS at %s", path.c_str());
+            ethercat_sim::framework::logger::Logger::error("Failed to bind UDS at %s",
+                                                           path.c_str());
             return false;
         }
-        ethercat_sim::framework::logger::Logger::info("Successfully bound and listening UDS %s", path.c_str());
+        ethercat_sim::framework::logger::Logger::info("Successfully bound and listening UDS %s",
+                                                      path.c_str());
     }
     else if (communication::EndpointParser::parseTcpEndpoint(endpoint_, host, port))
     {
-        ethercat_sim::framework::logger::Logger::info("Parsed TCP endpoint, host: %s, port: %d", host.c_str(), port);
+        ethercat_sim::framework::logger::Logger::info("Parsed TCP endpoint, host: %s, port: %d",
+                                                      host.c_str(), port);
         if (!bindTCP_(host, port))
         {
-            ethercat_sim::framework::logger::Logger::error("Failed to bind TCP at %s:%d", host.c_str(), port);
+            ethercat_sim::framework::logger::Logger::error("Failed to bind TCP at %s:%d",
+                                                           host.c_str(), port);
             return false;
         }
-        ethercat_sim::framework::logger::Logger::info("Successfully bound and listening TCP %s:%d", host.c_str(), port);
+        ethercat_sim::framework::logger::Logger::info("Successfully bound and listening TCP %s:%d",
+                                                      host.c_str(), port);
     }
     else
     {
-        ethercat_sim::framework::logger::Logger::error("Unsupported endpoint: %s", endpoint_.c_str());
+        ethercat_sim::framework::logger::Logger::error("Unsupported endpoint: %s",
+                                                       endpoint_.c_str());
         return false;
     }
 
     // Accept loop with poll to allow graceful stop
-    ethercat_sim::framework::logger::Logger::info("Entering accept loop, waiting for connections...");
+    ethercat_sim::framework::logger::Logger::info(
+        "Entering accept loop, waiting for connections...");
     int fd = -1;
     while (true)
     {
